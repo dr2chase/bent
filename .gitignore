@@ -1,0 +1,12 @@
+*.toml
+!benchmarks.toml
+!configurations-sample.toml
+Dockerfile
+bent
+*.log
+*.prof
+*.mprof
+src/
+testbin/
+pkg/
+bin/
