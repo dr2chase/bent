@@ -48,6 +48,7 @@ func main() {
 	N := 1
 	list := false
 	init := false
+	test := false
 	nosandbox := false
 
 	var benchmarksString, configurationsString string
@@ -55,13 +56,15 @@ func main() {
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
 
 	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names")
-	flag.StringVar(&configurationsString, "c", "", "comma-separated list of test/benchmark configurations")
 	flag.StringVar(&benchfile, "B", benchfile, "name of file describing benchmarks")
+
+	flag.StringVar(&configurationsString, "c", "", "comma-separated list of test/benchmark configurations")
 	flag.StringVar(&conffile, "C", conffile, "name of file describing configurations")
 
 	flag.BoolVar(&nosandbox, "s", nosandbox, "don't run commands in a docker sandbox")
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
 	flag.BoolVar(&init, "i", init, "initialize a directory for running tests (creates Dockerfile)")
+	flag.BoolVar(&test, "t", test, "run tests instead of benchmarks")
 
 	flag.Var((*count)(&verbose), "v", "print commands and other information (more -v = print more details)")
 
@@ -75,13 +78,16 @@ them according to the flags and environment variables supplied in %s.
 By default the compiled tests are run in a docker container to reduce
 the chances for accidents and mischief.
 
+By default benchmarks are run, not tests.
+
 This command expects to be run in a directory that does not contain
 subdirectories "pkg" and "bin", because those subdirectories may be
 created (and deleted) in the process of compiling the benchmarks.
 It will also extensively modify subdirectory "src".
 
 All the test binaries and test output will appear in the subdirectory
-'testbin'.
+'testbin'.  The test output is grouped by configuration to allow easy
+benchmark comparisons with benchstat.
 `, os.Args[0], benchfile, conffile)
 	}
 
@@ -98,7 +104,7 @@ All the test binaries and test output will appear in the subdirectory
 	_, derr := os.Stat("Dockerfile")
 	_, perr := os.Stat("pkg")
 	_, berr := os.Stat("bin")
-	_, serr := os.Stat("src")
+	_, serr := os.Stat("src") // existence of src prevents initialization of Dockerfile
 
 	if perr == nil || berr == nil {
 		fmt.Printf("Building/running tests will trash pkg and bin, please remove, rename or run in another directory.\n")
@@ -150,6 +156,16 @@ ADD . /
 		return
 	}
 
+	var moreArgs []string
+	if flag.NArg() > 0 {
+		for i, arg := range flag.Args() {
+			if i == 0 && (arg == "-" || arg == "--") {
+				continue
+			}
+			moreArgs = append(moreArgs, arg)
+		}
+	}
+
 	benchmarks := csToSet(benchmarksString)
 	configurations := csToSet(configurationsString)
 
@@ -196,10 +212,10 @@ ADD . /
 			bench.Repo = bench.Repo[:len(bench.Repo)-1]
 			todo.Benchmarks[i].Repo = bench.Repo
 		}
-		if "" == bench.Tests {
+		if "" == bench.Tests || !test {
 			todo.Benchmarks[i].Tests = "none"
 		}
-		if "" == bench.Benchmarks {
+		if "" == bench.Benchmarks || test {
 			todo.Benchmarks[i].Benchmarks = "none"
 		}
 		if nosandbox {
@@ -265,6 +281,9 @@ ADD . /
 		}
 		cmd := exec.Command("go", "get", "-d", "-t", "-v", bench.Repo)
 		cmd.Env = defaultEnv
+		if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
+			cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+		}
 		fmt.Printf("%v\n", cmd.Args)
 		_, err := cmd.Output()
 		if err != nil {
@@ -397,6 +416,7 @@ ADD . /
 					}
 					cmd.Env = append(cmd.Env, config.RunEnv...)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
+					cmd.Args = append(cmd.Args, moreArgs...)
 					todo.Configurations[j].runBinary("cd '"+testdir+"';", cmd)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
@@ -408,6 +428,7 @@ ADD . /
 					}
 					cmd.Args = append(cmd.Args, container, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
+					cmd.Args = append(cmd.Args, moreArgs...)
 					todo.Configurations[j].runBinary("", cmd)
 				}
 			}

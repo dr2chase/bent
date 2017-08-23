@@ -1,127 +1,132 @@
 [[Benchmarks]]
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "ethereum_storage"
   Repo = "github.com/ethereum/go-ethereum/swarm/storage"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark(Join|SplitTree)" # SplitPyramid seems to have a bug
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_ethash"
   Repo = "github.com/ethereum/go-ethereum/consensus/ethash"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_core"
   Repo = "github.com/ethereum/go-ethereum/core"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_sha3"
   Repo = "github.com/ethereum/go-ethereum/crypto/sha3"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "ethereum_ecies"
   Repo = "github.com/ethereum/go-ethereum/crypto/ecies"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_corevm"
   Repo = "github.com/ethereum/go-ethereum/core/vm"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_trie"
   Repo = "github.com/ethereum/go-ethereum/trie"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_whisperv5"
   Repo = "github.com/ethereum/go-ethereum/whisper/whisperv5"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
   Disabled = true # These seem to be really noisy
 
 [[Benchmarks]]
   Name = "eolian_dsp"
   Repo = "buddin.us/eolian/dsp"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "spexs2"
   Repo = "github.com/egonelbre/spexs2/_benchmark/"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "BenchmarkRun"
 
 [[Benchmarks]]
   Name = "minio"
   Repo = "github.com/minio/minio/cmd"
-  Tests = ""
+  Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGet" # not Get|Put|List
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
   Repo = "github.com/gonum/blas/native"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark.*Med" # not all benchmarks
 
 [[Benchmarks]]
   Name = "gonum_lapack_native"
   Repo = "github.com/gonum/lapack/native"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "BenchmarkDgeev/.*[mt][1234]"
 
 [[Benchmarks]]
   Name = "gonum_matrix_mat64"
   Repo = "github.com/gonum/matrix/mat64"
-  Tests = ""
+  Tests = "Test"
   Benchmarks = "Benchmark(.*Vec.*10000($|[^0])|.*Mul.*Dense.*1000H)"
 
 [[Benchmarks]]
   Name = "semver"
   Repo = "github.com/Masterminds/semver"
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "hugo_helpers"
   Repo = "github.com/gohugoio/hugo/helpers"
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "hugo_hugolib"
   Repo = "github.com/gohugoio/hugo/hugolib"
+  Tests = "Test"
   Benchmarks = "Benchmark([^S]|S[^i])" 
 
 [[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
   Repo = "github.com/gohugoio/hugo/hugolib"
+  Tests = "Test"
   Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20" 
 
 [[Benchmarks]]
   Name = "k8s_api"
   Repo = "k8s.io/kubernetes/pkg/api"
+  Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
   Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+  Tests = "Test"
   Benchmarks = "Benchmark"
-
