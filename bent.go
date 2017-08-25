@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -39,6 +40,8 @@ type Todo struct {
 	Configurations []Configuration
 }
 
+var verbose int
+
 func main() {
 	benchFile := "benchmarks.toml"    // default list of benchmarks
 	confFile := "configurations.toml" // default list of configurations
@@ -65,7 +68,7 @@ func main() {
 	flag.StringVar(&confFile, "C", confFile, "name of file describing configurations")
 
 	flag.BoolVar(&noSandbox, "U", noSandbox, "run all commands unsandboxed")
-	flag.BoolVar(&noSandbox, "S", requireSandbox, "exclude unsandboxable tests/benchmarks")
+	flag.BoolVar(&requireSandbox, "S", requireSandbox, "exclude unsandboxable tests/benchmarks")
 
 	flag.BoolVar(&getOnly, "g", getOnly, "get tests/benchmarks and dependencies, do not build or run")
 	flag.BoolVar(&runOnly, "r", runOnly, "skip get and build, go directly to run, assuming up-to-date binaries/containers")
@@ -238,9 +241,13 @@ ADD . /
 			todo.Benchmarks[i].NotSandboxed = true
 		}
 		if requireSandbox && todo.Benchmarks[i].NotSandboxed {
-			// TODO check for compiling on Linux so that sandbox can be applied.
-			// Note if noSandbox and requireSandbox, nothing is run.
-			todo.Benchmarks[i].Disabled = false
+			if runtime.GOOS == "linux" {
+				fmt.Printf("Removing sandbox for %s\n", bench.Name)
+				todo.Benchmarks[i].NotSandboxed = false
+			} else {
+				fmt.Printf("Disabling %s because it requires sandbox\n", bench.Name)
+				todo.Benchmarks[i].Disabled = true
+			}
 		}
 	}
 	for b, v := range benchmarks {
@@ -296,6 +303,9 @@ ADD . /
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", cwd)
 
 	if !runOnly {
+		if verbose == 0 {
+			fmt.Print("Go getting")
+		}
 
 		// Obtain (go get -d -t -v bench.Repo) all benchmarks, once, populating src
 		for _, bench := range todo.Benchmarks {
@@ -307,7 +317,11 @@ ADD . /
 			if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
 				cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
 			}
-			fmt.Println(asCommandLine(cwd, cmd))
+			if verbose > 0 {
+				fmt.Println(asCommandLine(cwd, cmd))
+			} else {
+				fmt.Print(".")
+			}
 			_, err := cmd.Output()
 			if err != nil {
 				ee := err.(*exec.ExitError)
@@ -315,6 +329,9 @@ ADD . /
 				os.Exit(2)
 				return
 			}
+		}
+		if verbose == 0 {
+			fmt.Println()
 		}
 
 		if getOnly {
@@ -328,6 +345,9 @@ ADD . /
 		err = os.Mkdir(testBinDir, 0775)
 		// Ignore the error -- TODO note the difference between exists already and other errors.
 		var needSandbox bool // true if any benchmark needs a sandbox
+		if verbose == 0 {
+			fmt.Print("Compiling")
+		}
 		for _, config := range todo.Configurations {
 			if config.Disabled {
 				continue
@@ -352,22 +372,17 @@ ADD . /
 				cmd.Env = defaultEnv
 				if !bench.NotSandboxed {
 					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+					needSandbox = true
 				}
 				if root != "" {
 					cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 				}
 				cmd.Env = append(cmd.Env, config.GcEnv...)
 
-				// sandboxed := ""
-				// if !bench.NotSandboxed {
-				// 	needSandbox = true
-				// 	sandboxed = " (sandboxed)"
-				// }
-
-				// fmt.Printf("Compiling %s for %s%s\n", bench.Name, config.Name, sandboxed)
-				fmt.Println(asCommandLine(cwd, cmd))
 				if verbose > 0 {
-					fmt.Printf("(dir=%v, env=%s) %v\n", cmd.Dir, cmd.Env, cmd.Args)
+					fmt.Println(asCommandLine(cwd, cmd))
+				} else {
+					fmt.Print(".")
 				}
 				output, err := cmd.CombinedOutput()
 				if err != nil {
@@ -381,7 +396,9 @@ ADD . /
 					os.Exit(3)
 					return
 				}
-				fmt.Print(string(output))
+				if verbose > 0 {
+					fmt.Print(string(output))
+				}
 				// Move generated binary to well known place.
 				from := cmd.Dir + "/" + bench.testBinaryName()
 				to := testBinDir + "/" + bench.Name + "_" + config.Name
@@ -394,14 +411,20 @@ ADD . /
 			os.RemoveAll("pkg")
 			os.RemoveAll("bin")
 		}
+		if verbose == 0 {
+			fmt.Println()
+		}
 
 		// As needed, create the sandbox.
 		if needSandbox {
-			cmd := exec.Command("docker", "build", "-q", ".")
-			// capture standard output to get name
-			if verbose > 0 {
-				fmt.Printf("(dir=%v, env=%s) %v\n", cmd.Dir, cmd.Env, cmd.Args)
+			if verbose == 0 {
+				fmt.Print("Making sandbox")
 			}
+			cmd := exec.Command("docker", "build", "-q", ".")
+			if verbose > 0 {
+				fmt.Println(asCommandLine(cwd, cmd))
+			}
+			// capture standard output to get container name
 			output, err := cmd.Output()
 			if err != nil {
 				ee := err.(*exec.ExitError)
@@ -410,6 +433,9 @@ ADD . /
 				return
 			}
 			container = strings.TrimSpace(string(output))
+			if verbose == 0 {
+				fmt.Println()
+			}
 			fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
 		}
 	}
@@ -502,7 +528,9 @@ func asCommandLine(cwd string, cmd *exec.Cmd) string {
 // If the command returns an error, runBinary calls os.Exit(5)
 func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) {
 	line := asCommandLine(cwd, cmd)
-	fmt.Println(line)
+	if verbose > 0 {
+		fmt.Println(line)
+	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		fmt.Printf("There was an error [stdoutpipe] running '%s', %v\n", line, err)
@@ -572,8 +600,6 @@ func replaceEnv(env []string, ev string, evv string) []string {
 	}
 	return env
 }
-
-var verbose int
 
 // csToset converts a commo-separated string into the set of strings between the commas.
 func csToSet(s string) map[string]bool {
