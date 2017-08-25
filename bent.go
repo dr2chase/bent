@@ -40,8 +40,8 @@ type Todo struct {
 }
 
 func main() {
-	benchfile := "benchmarks.toml"    // default list of benchmarks
-	conffile := "configurations.toml" // default list of configurations
+	benchFile := "benchmarks.toml"    // default list of benchmarks
+	confFile := "configurations.toml" // default list of configurations
 	testBinDir := "testbin"           // destination for generated binaries and benchmark outputs
 
 	container := ""
@@ -49,22 +49,30 @@ func main() {
 	list := false
 	init := false
 	test := false
-	nosandbox := false
+	noSandbox := false
+	requireSandbox := false
+	getOnly := false
+	runOnly := false
 
 	var benchmarksString, configurationsString string
 
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
 
-	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names")
-	flag.StringVar(&benchfile, "B", benchfile, "name of file describing benchmarks")
+	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names (default is all)")
+	flag.StringVar(&benchFile, "B", benchFile, "name of file describing benchmarks")
 
-	flag.StringVar(&configurationsString, "c", "", "comma-separated list of test/benchmark configurations")
-	flag.StringVar(&conffile, "C", conffile, "name of file describing configurations")
+	flag.StringVar(&configurationsString, "c", "", "comma-separated list of test/benchmark configurations (default is all)")
+	flag.StringVar(&confFile, "C", confFile, "name of file describing configurations")
 
-	flag.BoolVar(&nosandbox, "s", nosandbox, "don't run commands in a docker sandbox")
+	flag.BoolVar(&noSandbox, "U", noSandbox, "run all commands unsandboxed")
+	flag.BoolVar(&noSandbox, "S", requireSandbox, "exclude unsandboxable tests/benchmarks")
+
+	flag.BoolVar(&getOnly, "g", getOnly, "get tests/benchmarks and dependencies, do not build or run")
+	flag.BoolVar(&runOnly, "r", runOnly, "skip get and build, go directly to run, assuming up-to-date binaries/containers")
+
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
-	flag.BoolVar(&init, "i", init, "initialize a directory for running tests (creates Dockerfile)")
-	flag.BoolVar(&test, "t", test, "run tests instead of benchmarks")
+	flag.BoolVar(&init, "I", init, "initialize a directory for running tests (creates Dockerfile)")
+	flag.BoolVar(&test, "T", test, "run tests instead of benchmarks")
 
 	flag.Var((*count)(&verbose), "v", "print commands and other information (more -v = print more details)")
 
@@ -75,10 +83,18 @@ func main() {
 			`
 %s obtains the benchmarks/tests listed in %s and compiles and runs
 them according to the flags and environment variables supplied in %s.
-By default the compiled tests are run in a docker container to reduce
-the chances for accidents and mischief.
+Both of these files can be changed with the -B and -C flags; the full
+suite of benchmarks is somewhat time-consuming.
 
-By default benchmarks are run, not tests.
+Running with the -l flag will list all the available tests and benchmarks.
+
+By default the compiled tests are run in a docker container to reduce
+the chances for accidents and mischief. -U requests running tests
+unsandboxed, and -S limits the tests run to those that can be sandboxed
+(some cannot be because of cross-compilation issues; this may imply no
+change on platforms where the Docker container is not cross-compiled)
+
+By default benchmarks are run, not tests.  -T runs tests instead
 
 This command expects to be run in a directory that does not contain
 subdirectories "pkg" and "bin", because those subdirectories may be
@@ -88,7 +104,7 @@ It will also extensively modify subdirectory "src".
 All the test binaries and test output will appear in the subdirectory
 'testbin'.  The test output is grouped by configuration to allow easy
 benchmark comparisons with benchstat.
-`, os.Args[0], benchfile, conffile)
+`, os.Args[0], benchFile, confFile)
 	}
 
 	flag.Parse()
@@ -112,7 +128,7 @@ benchmark comparisons with benchstat.
 	}
 	if derr != nil && !init {
 		// Missing Dockerfile
-		fmt.Printf("Missing 'Dockerfile', please rerun with -i (init) flag if you intend to use this directory.\n")
+		fmt.Printf("Missing 'Dockerfile', please rerun with -I (init) flag if you intend to use this directory.\n")
 		os.Exit(1)
 	}
 
@@ -136,15 +152,15 @@ ADD . /
 	}
 
 	todo := &Todo{}
-	blobB, err := ioutil.ReadFile(benchfile)
+	blobB, err := ioutil.ReadFile(benchFile)
 	if err != nil {
-		fmt.Printf("There was an error opening or reading file %s: %v\n", benchfile, err)
+		fmt.Printf("There was an error opening or reading file %s: %v\n", benchFile, err)
 		os.Exit(1)
 		return
 	}
-	blobC, err := ioutil.ReadFile(conffile)
+	blobC, err := ioutil.ReadFile(confFile)
 	if err != nil {
-		fmt.Printf("There was an error opening or reading file %s: %v\n", conffile, err)
+		fmt.Printf("There was an error opening or reading file %s: %v\n", confFile, err)
 		os.Exit(1)
 		return
 	}
@@ -191,7 +207,7 @@ ADD . /
 	}
 	for b, v := range configurations {
 		if v {
-			fmt.Printf("Configuration %s listed after -c does not appear in %s\n", b, conffile)
+			fmt.Printf("Configuration %s listed after -c does not appear in %s\n", b, confFile)
 			os.Exit(1)
 		}
 	}
@@ -218,13 +234,18 @@ ADD . /
 		if "" == bench.Benchmarks || test {
 			todo.Benchmarks[i].Benchmarks = "none"
 		}
-		if nosandbox {
+		if noSandbox {
 			todo.Benchmarks[i].NotSandboxed = true
+		}
+		if requireSandbox && todo.Benchmarks[i].NotSandboxed {
+			// TODO check for compiling on Linux so that sandbox can be applied.
+			// Note if noSandbox and requireSandbox, nothing is run.
+			todo.Benchmarks[i].Disabled = false
 		}
 	}
 	for b, v := range benchmarks {
 		if v {
-			fmt.Printf("Benchmark %s listed after -b does not appear in %s\n", b, benchfile)
+			fmt.Printf("Benchmark %s listed after -b does not appear in %s\n", b, benchFile)
 			os.Exit(1)
 		}
 	}
@@ -274,115 +295,123 @@ ADD . /
 	}
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", cwd)
 
-	// Obtain (go get -d -t -v bench.Repo) all benchmarks, once, populating src
-	for _, bench := range todo.Benchmarks {
-		if bench.Disabled {
-			continue
-		}
-		cmd := exec.Command("go", "get", "-d", "-t", "-v", bench.Repo)
-		cmd.Env = defaultEnv
-		if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
-			cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-		}
-		fmt.Printf("%v\n", cmd.Args)
-		_, err := cmd.Output()
-		if err != nil {
-			ee := err.(*exec.ExitError)
-			fmt.Printf("There was an error running 'go get', stderr = %s\n", ee.Stderr)
-			os.Exit(2)
-			return
-		}
-	}
+	if !runOnly {
 
-	// Compile tests and move to ./testbin/Bench_Config.
-	// If any test needs sandboxing, then one docker container will be created
-	// (that contains all the tests).
-
-	err = os.Mkdir(testBinDir, 0775)
-	// Ignore the error -- TODO note the difference between exists already and other errors.
-	var needSandbox bool // true if any benchmark needs a sandbox
-	for _, config := range todo.Configurations {
-		if config.Disabled {
-			continue
-		}
-
-		root := config.Root
-
+		// Obtain (go get -d -t -v bench.Repo) all benchmarks, once, populating src
 		for _, bench := range todo.Benchmarks {
 			if bench.Disabled {
 				continue
 			}
-			gocmd := "go"
-			if root != "" {
-				gocmd = root + "bin/" + gocmd
-			}
-			cmd := exec.Command(gocmd, "test", "-a", "-c")
-			if config.GcFlags != "" {
-				cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
-			}
-			cmd.Args = append(cmd.Args, ".")
-			cmd.Dir = cwd + "/src/" + bench.Repo
+			cmd := exec.Command("go", "get", "-d", "-t", "-v", bench.Repo)
 			cmd.Env = defaultEnv
-			if !bench.NotSandboxed {
+			if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
 				cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
 			}
-			if root != "" {
-				cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+			fmt.Println(asCommandLine(cwd, cmd))
+			_, err := cmd.Output()
+			if err != nil {
+				ee := err.(*exec.ExitError)
+				fmt.Printf("There was an error running 'go get', stderr = %s\n", ee.Stderr)
+				os.Exit(2)
+				return
 			}
-			cmd.Env = append(cmd.Env, config.GcEnv...)
+		}
 
-			sandboxed := ""
-			if !bench.NotSandboxed {
-				needSandbox = true
-				sandboxed = " (sandboxed)"
+		if getOnly {
+			return
+		}
+
+		// Compile tests and move to ./testbin/Bench_Config.
+		// If any test needs sandboxing, then one docker container will be created
+		// (that contains all the tests).
+
+		err = os.Mkdir(testBinDir, 0775)
+		// Ignore the error -- TODO note the difference between exists already and other errors.
+		var needSandbox bool // true if any benchmark needs a sandbox
+		for _, config := range todo.Configurations {
+			if config.Disabled {
+				continue
 			}
 
-			fmt.Printf("Compiling %s for %s%s\n", bench.Name, config.Name, sandboxed)
+			root := config.Root
+
+			for _, bench := range todo.Benchmarks {
+				if bench.Disabled {
+					continue
+				}
+				gocmd := "go"
+				if root != "" {
+					gocmd = root + "bin/" + gocmd
+				}
+				cmd := exec.Command(gocmd, "test", "-a", "-c")
+				if config.GcFlags != "" {
+					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+				}
+				cmd.Args = append(cmd.Args, ".")
+				cmd.Dir = cwd + "/src/" + bench.Repo
+				cmd.Env = defaultEnv
+				if !bench.NotSandboxed {
+					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+				}
+				if root != "" {
+					cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+				}
+				cmd.Env = append(cmd.Env, config.GcEnv...)
+
+				// sandboxed := ""
+				// if !bench.NotSandboxed {
+				// 	needSandbox = true
+				// 	sandboxed = " (sandboxed)"
+				// }
+
+				// fmt.Printf("Compiling %s for %s%s\n", bench.Name, config.Name, sandboxed)
+				fmt.Println(asCommandLine(cwd, cmd))
+				if verbose > 0 {
+					fmt.Printf("(dir=%v, env=%s) %v\n", cmd.Dir, cmd.Env, cmd.Args)
+				}
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					fmt.Println(string(output))
+					switch e := err.(type) {
+					case *exec.ExitError:
+						fmt.Printf("There was an error running 'go test', stderr = %s\n", e.Stderr)
+					default:
+						fmt.Printf("There was an error running 'go test', %v\n", e)
+					}
+					os.Exit(3)
+					return
+				}
+				fmt.Print(string(output))
+				// Move generated binary to well known place.
+				from := cmd.Dir + "/" + bench.testBinaryName()
+				to := testBinDir + "/" + bench.Name + "_" + config.Name
+				err = os.Rename(from, to)
+				if err != nil {
+					fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
+					os.Exit(1)
+				}
+			}
+			os.RemoveAll("pkg")
+			os.RemoveAll("bin")
+		}
+
+		// As needed, create the sandbox.
+		if needSandbox {
+			cmd := exec.Command("docker", "build", "-q", ".")
+			// capture standard output to get name
 			if verbose > 0 {
 				fmt.Printf("(dir=%v, env=%s) %v\n", cmd.Dir, cmd.Env, cmd.Args)
 			}
-			output, err := cmd.CombinedOutput()
+			output, err := cmd.Output()
 			if err != nil {
-				fmt.Println(string(output))
-				switch e := err.(type) {
-				case *exec.ExitError:
-					fmt.Printf("There was an error running 'go test', stderr = %s\n", e.Stderr)
-				default:
-					fmt.Printf("There was an error running 'go test', %v\n", e)
-				}
-				os.Exit(3)
+				ee := err.(*exec.ExitError)
+				fmt.Printf("There was an error running 'docker build', stderr = %s\n", ee.Stderr)
+				os.Exit(4)
 				return
 			}
-			fmt.Print(string(output))
-			// Move generated binary to well known place.
-			from := cmd.Dir + "/" + bench.testBinaryName()
-			to := testBinDir + "/" + bench.Name + "_" + config.Name
-			err = os.Rename(from, to)
-			if err != nil {
-				fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
-				os.Exit(1)
-			}
+			container = strings.TrimSpace(string(output))
+			fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
 		}
-		os.RemoveAll("pkg")
-		os.RemoveAll("bin")
-	}
-
-	// As needed, create the sandbox.
-	if needSandbox {
-		cmd := exec.Command("docker", "build", "-q", ".")
-		// capture standard output to get name
-		if verbose > 0 {
-			fmt.Printf("(dir=%v, env=%s) %v\n", cmd.Dir, cmd.Env, cmd.Args)
-		}
-		output, err := cmd.Output()
-		if err != nil {
-			ee := err.(*exec.ExitError)
-			fmt.Printf("There was an error running 'docker build', stderr = %s\n", ee.Stderr)
-			os.Exit(4)
-			return
-		}
-		container = strings.TrimSpace(string(output))
-		fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
 	}
 
 	// If there's an error running one of the benchmarks, report what we've got, please.
@@ -417,7 +446,7 @@ ADD . /
 					cmd.Env = append(cmd.Env, config.RunEnv...)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					todo.Configurations[j].runBinary("cd '"+testdir+"';", cmd)
+					todo.Configurations[j].runBinary(cwd, cmd)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
 					testdir := "/src/" + b.Repo
@@ -429,27 +458,50 @@ ADD . /
 					cmd.Args = append(cmd.Args, container, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					todo.Configurations[j].runBinary("", cmd)
+					todo.Configurations[j].runBinary(cwd, cmd)
 				}
 			}
 		}
 	}
 }
 
+func escape(s string) string {
+	s = strings.Replace(s, "\\", "\\\\", -1)
+	s = strings.Replace(s, "'", "\\'", -1)
+	// Conservative guess at characters that will force quoting
+	if strings.ContainsAny(s, "\\ ;#*&$~?!|[]()<>{}`") {
+		s = " '" + s + "'"
+	} else {
+		s = " " + s
+	}
+	return s
+}
+
+// asCommandLine renders cmd as something that could be copy-and-pasted into a command line
+func asCommandLine(cwd string, cmd *exec.Cmd) string {
+	s := "("
+	if cmd.Dir != "" && cmd.Dir != cwd {
+		s += "cd" + escape(cmd.Dir) + ";"
+	}
+	for _, e := range cmd.Env {
+		if !strings.HasPrefix(e, "PATH=") &&
+			!strings.HasPrefix(e, "HOME=") &&
+			!strings.HasPrefix(e, "USER=") &&
+			!strings.HasPrefix(e, "SHELL=") {
+			s += escape(e)
+		}
+	}
+	for _, a := range cmd.Args {
+		s += escape(a)
+	}
+	s += " )"
+	return s
+}
+
 // runBinary runs cmd and displays the output.
 // If the command returns an error, runBinary calls os.Exit(5)
-func (c *Configuration) runBinary(line string, cmd *exec.Cmd) {
-	for _, s := range cmd.Args {
-		s = strings.Replace(s, "\\", "\\\\", -1)
-		s = strings.Replace(s, "'", "\\'", -1)
-		if line != "" {
-			line += " "
-		}
-		line += "'" + s + "'"
-	}
-	if verbose > 1 {
-		fmt.Print("(dir=%v, env=%s) ", cmd.Dir, cmd.Env)
-	}
+func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) {
+	line := asCommandLine(cwd, cmd)
 	fmt.Println(line)
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

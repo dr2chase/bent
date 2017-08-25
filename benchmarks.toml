@@ -2,7 +2,8 @@
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
   Tests = "Test"
-  Benchmarks = "Benchmark"
+  # Benchmarks = "Benchmark"
+  Benchmarks = "Benchmark.*Test"
 
 [[Benchmarks]]
   Name = "ethereum_storage"
