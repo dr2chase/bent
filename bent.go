@@ -43,10 +43,10 @@ type Todo struct {
 var verbose int
 
 func main() {
-	benchFile := "benchmarks.toml"    // default list of benchmarks
-	confFile := "configurations.toml" // default list of configurations
-	testBinDir := "testbin"           // destination for generated binaries and benchmark outputs
-
+	benchFile := "benchmarks.toml"            // default list of benchmarks
+	confFile := "configurations.toml"         // default list of configurations
+	testBinDir := "testbin"                   // destination for generated binaries and benchmark outputs
+	srcPath := "src/github.com/dr2chase/bent" // Used to find configuration files.
 	container := ""
 	N := 1
 	list := false
@@ -74,7 +74,7 @@ func main() {
 	flag.BoolVar(&runOnly, "r", runOnly, "skip get and build, go directly to run, assuming up-to-date binaries/containers")
 
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
-	flag.BoolVar(&init, "I", init, "initialize a directory for running tests (creates Dockerfile)")
+	flag.BoolVar(&init, "I", init, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
 	flag.BoolVar(&test, "T", test, "run tests instead of benchmarks")
 
 	flag.Var((*count)(&verbose), "v", "print commands and other information (more -v = print more details)")
@@ -137,10 +137,23 @@ benchmark comparisons with benchstat.
 
 	// Create a Dockerfile
 	if init {
+		anyerr := false
 		if serr == nil {
-			fmt.Printf("Building/running tests will modify src, please remove, rename or initialize another directory.\n")
+			fmt.Printf("Building/running tests will modify src, please remove, rename or initialize a different directory.\n")
+			anyerr = true
+		}
+		gopath := os.Getenv("GOPATH")
+		if gopath == "" {
+			fmt.Printf("Need a GOPATH to locate configuration files in $GOPATH/src/%s.\n", srcPath)
+			anyerr = true
+		}
+		if anyerr {
 			os.Exit(1)
 		}
+		copyFile(gopath+"/"+srcPath, "benchmarks.toml")
+		copyFile(gopath+"/"+srcPath, "benchmarks-50.toml")
+		copyFile(gopath+"/"+srcPath, "configurations-sample.toml")
+
 		err := ioutil.WriteFile("Dockerfile",
 			[]byte(`
 FROM ubuntu
@@ -151,6 +164,7 @@ ADD . /
 			os.Exit(1)
 			return
 		}
+		fmt.Printf("Created Dockerfile\n")
 
 	}
 
@@ -522,6 +536,20 @@ func asCommandLine(cwd string, cmd *exec.Cmd) string {
 	}
 	s += " )"
 	return s
+}
+
+func copyFile(fromDir, file string) {
+	bytes, err := ioutil.ReadFile(fromDir + "/" + file)
+	if err != nil {
+		fmt.Printf("Error reading %s\n", fromDir+"/"+file)
+		os.Exit(1)
+	}
+	err = ioutil.WriteFile(file, bytes, 0664)
+	if err != nil {
+		fmt.Printf("Error writing %s\n", file)
+		os.Exit(1)
+	}
+	fmt.Printf("Copied %s to current directory\n", fromDir+"/"+file)
 }
 
 // runBinary runs cmd and displays the output.

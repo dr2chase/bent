@@ -1,14 +1,14 @@
 [[Configurations]]
-  Name = "NoResched"
+  Name = "Resched"
   GcFlags = "-d=ssa/preempt_loops/on"
   RunEnv = ["GOGC=100"]
   RunFlags = ["-test.short"]
-  Root = "$HOME/GoogleDrive/work/go-debug"
+  Root = "$HOME/work/go-debug"
   # Disabled = true
 
 [[Configurations]]
-  Name = "Resched"
+  Name = "NoResched"
   GcFlags = "-d=ssa/insert_resched_checks/off"
   RunEnv = ["GOGC=100"]
   RunFlags = ["-test.short"]
-  Root = "$HOME/GoogleDrive/work/go/"
+  Root = "$HOME/work/go/"

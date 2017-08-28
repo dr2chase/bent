@@ -131,3 +131,38 @@
   Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
   Tests = "Test"
   Benchmarks = "Benchmark"
+
+# These are the known-noisy benchmarks
+# 
+# AddScaledVec10000Inc1-12  4.58µs ±19% 4.55µs ±13% 4.83µs ±12% 4.77µs ±15%
+# AddScaledVec10000Inc2-12  10.7µs ±10% 10.9µs ± 4% 10.4µs ± 8% 10.6µs ±10%
+# AddVec10000Inc1-12  4.56µs ±19% 4.54µs ±12% 4.86µs ±13% 4.78µs ±16%
+# AddVec10000Inc2-12  10.8µs ± 5% 10.9µs ± 4% 10.3µs ± 7% 10.5µs ± 7%
+# AddVec10000Inc2-12  10.8µs ± 5% 10.9µs ± 4% 10.3µs ± 7% 10.5µs ± 7%
+# BaseTest4KB-12 1.21µs ±11% 1.19µs ± 0% 2.40µs ± 0% 3.23µs ± 1%
+# CheckVersionWildcard-12 37.2ns ±11% 35.7ns ± 0% 37.1ns ± 5% 37.6ns ±12%
+# DgemmMedMedMedNTT-12  187µs ± 6%  191µs ±11%  193µs ± 8%  189µs ± 7%
+# GetObject100KbFS-12 274µs ± 3%  262µs ±14%  278µs ± 3%  282µs ± 1%
+# GetObject10KbFS-12  104µs ± 2%  94µs ±24% 105µs ± 3%  106µs ± 2%
+# GetObject10KbXL-12  5.48ms ± 4% 5.43ms ± 4% 5.48ms ± 5% 5.52ms ± 5%
+# GetObjectParallel100KbFS-12 68.1µs ± 3% 63.9µs ±18% 69.1µs ± 2% 69.7µs ± 3%
+# GetObjectParallel10KbFS-12  48.1µs ± 4% 43.5µs ±27% 48.6µs ± 2% 48.6µs ± 2%
+# GetObjectParallel10MbFS-12  931µs ±13%  862µs ±24%  929µs ± 4%  929µs ± 3%
+# GetObjectParallel1MbFS-12 203µs ± 3%  195µs ±11%  205µs ± 2%  204µs ± 2%
+# GetObjectParallel25MbFS-12  2.28ms ±28% 2.09ms ±23% 2.21ms ± 9% 2.23ms ± 6%
+# GetObjectParallel50MbFS-12  4.50ms ±33% 4.60ms ±22% 4.41ms ±12% 4.81ms ±47%
+# GetObjectParallel5MbFS-12 531µs ± 6%  496µs ±20%  528µs ± 3%  526µs ± 6%
+# GetObjectParallelVerySmallFS-12 37.3µs ±39% 34.2µs ±34% 43.0µs ± 3% 41.9µs ±11%
+# GetObjectVerySmallFS-12 70.0µs ± 3% 58.1µs ±44% 70.6µs ± 2% 70.8µs ± 3%
+# PrecompiledIdentity/128-Gas=27-12 17.3ns ± 0% 18.0ns ± 6% 17.4ns ± 1% 18.0ns ± 7%
+# Prove-12  632µs ± 7%  617µs ±10%  617µs ±10%  626µs ± 7%
+# ReplaceDivider-12 1.03µs ±13% 1.03µs ± 9% 1.06µs ±13% 1.07µs ±10%
+# ReplaceShortcodeTokens-12 2.72µs ±12% 2.62µs ± 9% 2.82µs ± 1% 2.58µs ±10%
+# ScaleVec10000Inc1-12  2.98µs ± 3% 3.00µs ± 6% 3.12µs ±12% 2.98µs ± 2%
+# ScaleVec10000Inc2-12  5.62µs ±21% 5.60µs ± 5% 5.98µs ±11% 5.88µs ±13%
+# SubVec10000Inc1-12  4.58µs ±19% 4.54µs ±11% 4.84µs ±16% 4.76µs ±15%
+# SubVec10000Inc2-12  10.8µs ±10% 10.9µs ± 5% 10.3µs ± 8% 10.5µs ± 7%
+# ValidateVersionWildcard-12  42.8ns ± 9% 41.3ns ± 6% 43.4ns ± 7% 43.1ns ± 6%
+# VerifyProof-12  12.2µs ± 7% 12.4µs ± 6% 12.4µs ± 4% 12.3µs ± 5%
+
+
