@@ -1,0 +1,19 @@
+
+# [[Benchmarks]]
+#   Name = "kanzi"
+#   Repo = "github.com/flanglet/kanzi/go/src/kanzi/benchmark"
+#   Tests = "Test"
+#   Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "uber_zap"
+  Repo = "github.com/uber-go/zap/benchmarks"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "uuid"
+  Repo = "github.com/satori/go.uuid/"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
