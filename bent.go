@@ -155,6 +155,7 @@ benchmark comparisons with benchstat.
 		}
 		copyFile(gopath+"/"+srcPath, "benchmarks.toml")
 		copyFile(gopath+"/"+srcPath, "benchmarks-50.toml")
+		copyFile(gopath+"/"+srcPath, "benchmarks-trial.toml")
 		copyFile(gopath+"/"+srcPath, "configurations-sample.toml")
 
 		err := ioutil.WriteFile("Dockerfile",
