@@ -55,7 +55,8 @@ func main() {
 	noSandbox := false
 	requireSandbox := false
 	getOnly := false
-	runOnly := false
+	runContainer := ""
+	wikiTable := false // emit the tests in a form usable in a wiki table
 
 	var benchmarksString, configurationsString string
 
@@ -71,11 +72,13 @@ func main() {
 	flag.BoolVar(&requireSandbox, "S", requireSandbox, "exclude unsandboxable tests/benchmarks")
 
 	flag.BoolVar(&getOnly, "g", getOnly, "get tests/benchmarks and dependencies, do not build or run")
-	flag.BoolVar(&runOnly, "r", runOnly, "skip get and build, go directly to run, assuming up-to-date binaries/containers")
+	flag.StringVar(&runContainer, "r", runContainer, "skip get and build, go directly to run, using specified container (any non-empty string will do for unsandboxed execution)")
 
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
 	flag.BoolVar(&init, "I", init, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
 	flag.BoolVar(&test, "T", test, "run tests instead of benchmarks")
+
+	flag.BoolVar(&wikiTable, "W", wikiTable, "print benchmark info for a wiki table")
 
 	flag.Var((*count)(&verbose), "v", "print commands and other information (more -v = print more details)")
 
@@ -202,6 +205,15 @@ ADD . /
 	benchmarks := csToSet(benchmarksString)
 	configurations := csToSet(configurationsString)
 
+	if wikiTable {
+		for _, bench := range todo.Benchmarks {
+			s := bench.Benchmarks
+			s = strings.Replace(s, "|", "\\|", -1)
+			fmt.Printf(" | %s | | `%s` | `%s` | |\n", bench.Name, bench.Repo, s)
+		}
+		return
+	}
+
 	// Normalize configuration gorooot names by ensuring they end in '/'
 	// Process command-line-specified configurations
 	for i, trial := range todo.Configurations {
@@ -228,6 +240,7 @@ ADD . /
 			os.Exit(1)
 		}
 	}
+
 	// Normalize benchmark names by removing any trailing '/'.
 	// Normalize Test and Benchmark specs by replacing missing value with something that won't match anything.
 	// Process command-line-specified benchmarks
@@ -316,7 +329,9 @@ ADD . /
 	}
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", cwd)
 
-	if !runOnly {
+	var needSandbox bool // true if any benchmark needs a sandbox
+
+	if runContainer == "" {
 		if verbose == 0 {
 			fmt.Print("Go getting")
 		}
@@ -358,7 +373,6 @@ ADD . /
 
 		err = os.Mkdir(testBinDir, 0775)
 		// Ignore the error -- TODO note the difference between exists already and other errors.
-		var needSandbox bool // true if any benchmark needs a sandbox
 		if verbose == 0 {
 			fmt.Print("Compiling")
 		}
@@ -452,12 +466,18 @@ ADD . /
 			}
 			fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
 		}
+	} else {
+		container = runContainer
 	}
 
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			ioutil.WriteFile(testBinDir+"/"+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
+		}
+		if needSandbox {
+			// Print this twice so it doesn't get missed.
+			fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
 		}
 	}(todo)
 
