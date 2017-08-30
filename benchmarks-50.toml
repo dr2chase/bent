@@ -80,19 +80,19 @@
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
-  Repo = "github.com/gonum/blas/native"
+  Repo = "gonum.org/v1/gonum/blas/gonum"
   Tests = "Test"
   Benchmarks = "Benchmark(DasumMediumUnitaryInc|Dnrm2MediumPosInc)" # not all benchmarks
 
 [[Benchmarks]]
   Name = "gonum_lapack_native"
-  Repo = "github.com/gonum/lapack/native"
+  Repo = "gonum.org/v1/gonum/lapack/gonum"
   Tests = "Test"
   Benchmarks = "BenchmarkDgeev/Circulant10"
 
 [[Benchmarks]]
-  Name = "gonum_matrix_mat64"
-  Repo = "github.com/gonum/matrix/mat64"
+  Name = "gonum_mat"
+  Repo = "gonum.org/v1/gonum/mat"
   Tests = "Test"
   Benchmarks = "Benchmark(MulWorkspaceDense1000Hundredth|ScaleVec10000Inc20)"
 
