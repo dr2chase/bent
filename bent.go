@@ -169,7 +169,7 @@ ADD . /
 			return
 		}
 		fmt.Printf("Created Dockerfile\n")
-
+		return
 	}
 
 	todo := &Todo{}
