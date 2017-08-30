@@ -4,7 +4,7 @@
   RunEnv = ["GOGC=100"]
   RunFlags = ["-test.short"]
   Root = "$HOME/work/go-debug"
-  # Disabled = true
+  Disabled = true
 
 [[Configurations]]
   Name = "NoResched"
