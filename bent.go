@@ -519,7 +519,7 @@ ADD . /
 						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 					}
 					cmd.Env = append(cmd.Env, config.RunEnv...)
-					cmd.Env = append(cmd.Env)
+					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					todo.Configurations[j].runBinary(cwd, cmd)

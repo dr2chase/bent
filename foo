@@ -1,5 +1,5 @@
 #!/bin/bash
 # Run args as command, but wrapped in foo.
-echo Foo foo foo foo foo foo foo
+echo Foo foo foo foo foo foo foo ${BENT_BINARY}
 "$@"
-echo oof oof oof oof oof oof ooF
+echo  ${BENT_BINARY} oof oof oof oof oof oof ooF
