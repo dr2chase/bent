@@ -122,6 +122,8 @@ benchmark comparisons with benchstat.
 		os.Exit(1)
 		return
 	}
+	gopath := cwd + "/gopath"
+	err = os.Mkdir(gopath, 0775)
 
 	// To avoid bad surprises, look for pkg and bin, if they exist, refuse to run
 	_, derr := os.Stat("Dockerfile")
@@ -329,7 +331,7 @@ ADD . /
 			defaultEnv = append(defaultEnv, e)
 		}
 	}
-	defaultEnv = replaceEnv(defaultEnv, "GOPATH", cwd)
+	defaultEnv = replaceEnv(defaultEnv, "GOPATH", gopath)
 
 	var needSandbox bool // true if any benchmark needs a sandbox
 
@@ -398,7 +400,7 @@ ADD . /
 					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 				}
 				cmd.Args = append(cmd.Args, ".")
-				cmd.Dir = cwd + "/src/" + bench.Repo
+				cmd.Dir = gopath + "/src/" + bench.Repo
 				cmd.Env = defaultEnv
 				if !bench.NotSandboxed {
 					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
@@ -502,7 +504,7 @@ ADD . /
 				}
 				testBinaryName := b.Name + "_" + config.Name
 				if b.NotSandboxed {
-					testdir := cwd + "/src/" + b.Repo
+					testdir := gopath + "/src/" + b.Repo
 					bin := cwd + "/" + testBinDir + "/" + testBinaryName
 					var cmd *exec.Cmd
 					if configWrapper == "" {
@@ -523,7 +525,7 @@ ADD . /
 					todo.Configurations[j].runBinary(cwd, cmd)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
-					testdir := "/src/" + b.Repo
+					testdir := "/gopath/src/" + b.Repo
 					cmd := exec.Command("docker", "run", "--net=none",
 						"-w", testdir)
 					for _, e := range config.RunEnv {
