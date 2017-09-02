@@ -15,14 +15,15 @@ import (
 )
 
 type Configuration struct {
-	Name     string   // Short name used for binary names, mention on command line
-	Root     string   // Specific Go root to use for this trial
-	GcFlags  string   // GcFlags supplied to 'go test -c' for building
-	GcEnv    []string // Environment variables supplied to 'go test -c' for building
-	RunFlags []string // Extra flags passed to the test binary
-	RunEnv   []string // Extra environment variables passed to the test binary
-	Disabled bool     // True if this configuration is temporarily disabled
-	output   bytes.Buffer
+	Name       string   // Short name used for binary names, mention on command line
+	Root       string   // Specific Go root to use for this trial
+	GcFlags    string   // GcFlags supplied to 'go test -c' for building
+	GcEnv      []string // Environment variables supplied to 'go test -c' for building
+	RunFlags   []string // Extra flags passed to the test binary
+	RunEnv     []string // Extra environment variables passed to the test binary
+	RunWrapper []string // Command and args to precede whatever the operation is; may fail in the sandbox.
+	Disabled   bool     // True if this configuration is temporarily disabled
+	output     bytes.Buffer
 }
 
 type Benchmark struct {
@@ -489,6 +490,11 @@ ADD . /
 				continue
 			}
 			root := config.Root
+			configWrapper := ""
+			if len(config.RunWrapper) > 0 {
+				// Prepend slash, for now it runs from root of container or cwd + configWrapper if not sandboxed.
+				configWrapper = "/" + config.RunWrapper[0]
+			}
 
 			for _, b := range todo.Benchmarks {
 				if b.Disabled {
@@ -498,13 +504,20 @@ ADD . /
 				if b.NotSandboxed {
 					testdir := cwd + "/src/" + b.Repo
 					bin := cwd + "/" + testBinDir + "/" + testBinaryName
-					cmd := exec.Command(bin, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					var cmd *exec.Cmd
+					if configWrapper == "" {
+						cmd = exec.Command(bin, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					} else {
+						cmd = exec.Command(cwd+configWrapper, config.RunWrapper[1:]...)
+						cmd.Args = append(cmd.Args, bin, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					}
 					cmd.Dir = testdir
 					cmd.Env = defaultEnv
 					if root != "" {
 						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 					}
 					cmd.Env = append(cmd.Env, config.RunEnv...)
+					cmd.Env = append(cmd.Env)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					todo.Configurations[j].runBinary(cwd, cmd)
@@ -516,7 +529,13 @@ ADD . /
 					for _, e := range config.RunEnv {
 						cmd.Args = append(cmd.Args, "-e", e)
 					}
-					cmd.Args = append(cmd.Args, container, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					cmd.Args = append(cmd.Args, "-e", "BENT_BINARY="+testBinaryName)
+					cmd.Args = append(cmd.Args, container)
+					if configWrapper != "" {
+						cmd.Args = append(cmd.Args, configWrapper)
+						cmd.Args = append(cmd.Args, config.RunWrapper[1:]...)
+					}
+					cmd.Args = append(cmd.Args, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					todo.Configurations[j].runBinary(cwd, cmd)

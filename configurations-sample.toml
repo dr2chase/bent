@@ -3,6 +3,7 @@
   GcFlags = "-d=ssa/preempt_loops/on"
   RunEnv = ["GOGC=100"]
   RunFlags = ["-test.short"]
+  RunWrapper = ["foo_wrapper"]
   Root = "$HOME/work/go-debug"
   Disabled = true
 

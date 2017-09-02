@@ -1,0 +1,5 @@
+#!/bin/bash
+# Run args as command, but wrapped in foo.
+echo Foo foo foo foo foo foo foo
+"$@"
+echo oof oof oof oof oof oof ooF
