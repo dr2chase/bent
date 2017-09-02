@@ -1,3 +1,7 @@
+
+# A sample of about 50 different benchmark runs, not noisy, run quickly enough,
+# that appear to be somewhat diverse.
+
 [[Benchmarks]]
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"

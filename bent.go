@@ -148,18 +148,20 @@ benchmark comparisons with benchstat.
 			fmt.Printf("Building/running tests will modify src, please remove, rename or initialize a different directory.\n")
 			anyerr = true
 		}
-		gopath := os.Getenv("GOPATH")
-		if gopath == "" {
+		gopathInit := os.Getenv("GOPATH")
+		if gopathInit == "" {
 			fmt.Printf("Need a GOPATH to locate configuration files in $GOPATH/src/%s.\n", srcPath)
 			anyerr = true
 		}
 		if anyerr {
 			os.Exit(1)
 		}
-		copyFile(gopath+"/"+srcPath, "benchmarks.toml")
-		copyFile(gopath+"/"+srcPath, "benchmarks-50.toml")
-		copyFile(gopath+"/"+srcPath, "benchmarks-trial.toml")
-		copyFile(gopath+"/"+srcPath, "configurations-sample.toml")
+		copyFile(gopathInit+"/"+srcPath, "foo")
+		os.Chmod("foo", 0755)
+		copyFile(gopathInit+"/"+srcPath, "benchmarks.toml")
+		copyFile(gopathInit+"/"+srcPath, "benchmarks-50.toml")
+		copyFile(gopathInit+"/"+srcPath, "benchmarks-trial.toml")
+		copyFile(gopathInit+"/"+srcPath, "configurations-sample.toml")
 
 		err := ioutil.WriteFile("Dockerfile",
 			[]byte(`

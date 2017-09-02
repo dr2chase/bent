@@ -1,3 +1,6 @@
+# Benchmarks that build, and that run quickly enough.
+# The noisy ones are listed at the bottom
+
 [[Benchmarks]]
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
