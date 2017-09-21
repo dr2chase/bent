@@ -136,6 +136,36 @@
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
 
+[[Benchmarks]]
+  Name = "uuid"
+  Repo = "github.com/satori/go.uuid/"
+  Tests = "Test"
+  Benchmarks = "Benchmark(NewV5|MarshalToString)"
+
+[[Benchmarks]]
+  Name = "gonum_topo"
+  Repo = "gonum.org/v1/gonum/graph/topo/"
+  Tests = "Test"
+  Benchmarks = "Benchmark(TarjanSCCGnp_1000_half|TarjanSCCGnp_10_tenth)"
+
+[[Benchmarks]]
+  Name = "gonum_path"
+  Repo = "gonum.org/v1/gonum/graph/path/"
+  Tests = "Test"
+  Benchmarks = "Benchmark(AStarUndirectedmallWorld_10_2_2_2_Heur|Dominators/nested_if_n256)"
+
+[[Benchmarks]]
+  Name = "gonum_community"
+  Repo = "gonum.org/v1/gonum/graph/community/"
+  Tests = "Test"
+  Benchmarks = "BenchmarkLouvainDirectedMultiplex"
+
+[[Benchmarks]]
+  Name = "gonum_traverse"
+  Repo = "gonum.org/v1/gonum/graph/traverse/"
+  Tests = "Test"
+  Benchmarks = "BenchmarkWalkAllBreadthFirstGnp_(10|1000)_tenth" # more difference by size than anything else
+
 # These are the known-noisy benchmarks
 # AddScaledVec10000Inc1-12  4.58µs ±19% 4.55µs ±13% 4.83µs ±12% 4.77µs ±15%
 # AddScaledVec10000Inc2-12  10.7µs ±10% 10.9µs ± 4% 10.4µs ± 8% 10.6µs ±10%
