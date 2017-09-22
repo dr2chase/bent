@@ -1,11 +1,12 @@
 
 # Benchmarks that have not been vetted for builds, runs, noisiness, run length, etc.
 
-# [[Benchmarks]]
-#   Name = "kanzi"
-#   Repo = "github.com/flanglet/kanzi/go/src/kanzi/benchmark"
-#   Tests = "Test"
-#   Benchmarks = "Benchmark"
+[[Benchmarks]]
+  Name = "kanzi"
+  Repo = "github.com/flanglet/kanzi/go/src/kanzi/benchmark"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+  Disabled = true # cert was bonkers
 
 [[Benchmarks]]
   Name = "uber_zap"

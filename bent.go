@@ -44,7 +44,7 @@ type Todo struct {
 var verbose int
 
 func main() {
-	benchFile := "benchmarks.toml"            // default list of benchmarks
+	benchFile := "benchmarks-50.toml"         // default list of benchmarks
 	confFile := "configurations.toml"         // default list of configurations
 	testBinDir := "testbin"                   // destination for generated binaries and benchmark outputs
 	srcPath := "src/github.com/dr2chase/bent" // Used to find configuration files.
