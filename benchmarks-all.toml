@@ -61,7 +61,8 @@
   Repo = "github.com/ethereum/go-ethereum/whisper/whisperv5"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # These seem to be really noisy
+  NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  # Disabled = true # Failed to build, and it's noisy anyway.
 
 [[Benchmarks]]
   Name = "eolian_dsp"
@@ -132,6 +133,36 @@
 [[Benchmarks]]
   Name = "k8s_schedulercache"
   Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "uuid"
+  Repo = "github.com/satori/go.uuid/"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "gonum_topo"
+  Repo = "gonum.org/v1/gonum/graph/topo/"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "gonum_path"
+  Repo = "gonum.org/v1/gonum/graph/path/"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "gonum_community"
+  Repo = "gonum.org/v1/gonum/graph/community/"
+  Tests = "Test"
+  Benchmarks = "BenchmarkLouvainDirectedMultiplex"
+
+[[Benchmarks]]
+  Name = "gonum_traverse"
+  Repo = "gonum.org/v1/gonum/graph/traverse/"
   Tests = "Test"
   Benchmarks = "Benchmark"
 

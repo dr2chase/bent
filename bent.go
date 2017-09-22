@@ -88,10 +88,13 @@ func main() {
 		flag.PrintDefaults()
 		fmt.Fprintf(os.Stderr,
 			`
-%s obtains the benchmarks/tests listed in %s and compiles and runs
-them according to the flags and environment variables supplied in %s.
+%s obtains the benchmarks/tests listed in %s and compiles 
+and runs them according to the flags and environment 
+variables supplied in %s.  Builds use -a to ensure everything
+is compiled with the same configuration flags.
+
 Both of these files can be changed with the -B and -C flags; the full
-suite of benchmarks is somewhat time-consuming.
+suite of benchmarks in benchmarks-all.toml is somewhat time-consuming.
 
 Running with the -l flag will list all the available tests and benchmarks.
 
@@ -104,13 +107,14 @@ change on platforms where the Docker container is not cross-compiled)
 By default benchmarks are run, not tests.  -T runs tests instead
 
 This command expects to be run in a directory that does not contain
-subdirectories "pkg" and "bin", because those subdirectories may be
-created (and deleted) in the process of compiling the benchmarks.
-It will also extensively modify subdirectory "src".
+subdirectories "gopath/pkg" and "gopath/bin", because those subdirectories 
+may be created (and deleted) in the process of compiling the benchmarks.
+It will also extensively modify subdirectory "gopath/src".
 
 All the test binaries and test output will appear in the subdirectory
-'testbin'.  The test output is grouped by configuration to allow easy
-benchmark comparisons with benchstat.
+'testbin', where output will have the suffix '.stdout'.  The test output
+is grouped by configuration to allow easy benchmark comparisons with
+benchstat.
 `, os.Args[0], benchFile, confFile)
 	}
 
@@ -127,9 +131,9 @@ benchmark comparisons with benchstat.
 
 	// To avoid bad surprises, look for pkg and bin, if they exist, refuse to run
 	_, derr := os.Stat("Dockerfile")
-	_, perr := os.Stat("pkg")
-	_, berr := os.Stat("bin")
-	_, serr := os.Stat("src") // existence of src prevents initialization of Dockerfile
+	_, perr := os.Stat("gopath/pkg")
+	_, berr := os.Stat("gopath/bin")
+	_, serr := os.Stat("gopath/src") // existence of src prevents initialization of Dockerfile
 
 	if perr == nil || berr == nil {
 		fmt.Printf("Building/running tests will trash pkg and bin, please remove, rename or run in another directory.\n")
@@ -145,7 +149,7 @@ benchmark comparisons with benchstat.
 	if init {
 		anyerr := false
 		if serr == nil {
-			fmt.Printf("Building/running tests will modify src, please remove, rename or initialize a different directory.\n")
+			fmt.Printf("It looks like you've already initialized this directory, remove ./gopath if you want to reinit.\n")
 			anyerr = true
 		}
 		gopathInit := os.Getenv("GOPATH")
@@ -158,7 +162,7 @@ benchmark comparisons with benchstat.
 		}
 		copyFile(gopathInit+"/"+srcPath, "foo")
 		os.Chmod("foo", 0755)
-		copyFile(gopathInit+"/"+srcPath, "benchmarks.toml")
+		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-50.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-trial.toml")
 		copyFile(gopathInit+"/"+srcPath, "configurations-sample.toml")
