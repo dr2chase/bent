@@ -166,4 +166,10 @@
   Tests = "Test"
   Benchmarks = "BenchmarkWalkAllBreadthFirstGnp_(10|1000)_tenth" # more difference by size than anything else
 
+[[Benchmarks]]
+  Name = "capnproto2"
+  Repo = "zombiezen.com/go/capnproto2/"
+  Tests = "Test"
+  Benchmarks = "Benchmark(TextMovementBetweenSegments|Growth_MultiSegment)"
+
 
