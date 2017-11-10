@@ -166,6 +166,12 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
 
+[[Benchmarks]]
+  Name = "capnproto2"
+  Repo = "zombiezen.com/go/capnproto2/"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
 # These are the known-noisy benchmarks
 # 
 # AddScaledVec10000Inc1-12  4.58µs ±19% 4.55µs ±13% 4.83µs ±12% 4.77µs ±15%
