@@ -127,13 +127,13 @@
 
 [[Benchmarks]]
   Name = "k8s_api"
-  Repo = "k8s.io/kubernetes/pkg/api"
+  Repo = "k8s.io/kubernetes/pkg/api/testing/"
   Tests = "Test"
   Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
-  Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+  Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache/"
   Tests = "Test"
   Benchmarks = "Benchmark"
 

@@ -127,7 +127,7 @@
 
 [[Benchmarks]]
   Name = "k8s_api"
-  Repo = "k8s.io/kubernetes/pkg/api"
+  Repo = "k8s.io/kubernetes/pkg/api/testing"
   Tests = "Test"
   Benchmarks = "BenchmarkEncodeCodecFromInternalProtobuf"
 
