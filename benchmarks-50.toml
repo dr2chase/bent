@@ -69,7 +69,7 @@
   Repo = "buddin.us/eolian/dsp"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = "true" # Not always resolving host,
+  Disabled = true # Not always resolving host,
 
 [[Benchmarks]]
   Name = "spexs2"
