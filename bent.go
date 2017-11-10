@@ -480,14 +480,22 @@ ADD . /
 		container = runContainer
 	}
 
+	var failures []string
+
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			ioutil.WriteFile(testBinDir+"/"+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
 		}
 		if needSandbox {
-			// Print this twice so it doesn't get missed.
+			// Print this a second time so it doesn't get missed.
 			fmt.Printf("Container for sandboxed bench/test runs is %s\n", container)
+		}
+		if len(failures) > 0 {
+			fmt.Println("FAILURES:")
+			for _, f := range failures {
+				fmt.Println(f)
+			}
 		}
 	}(todo)
 
@@ -509,6 +517,7 @@ ADD . /
 					continue
 				}
 				testBinaryName := b.Name + "_" + config.Name
+				var s string
 				if b.NotSandboxed {
 					testdir := gopath + "/src/" + b.Repo
 					bin := cwd + "/" + testBinDir + "/" + testBinaryName
@@ -528,7 +537,7 @@ ADD . /
 					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					todo.Configurations[j].runBinary(cwd, cmd)
+					s = todo.Configurations[j].runBinary(cwd, cmd)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
 					testdir := "/gopath/src/" + b.Repo
@@ -546,7 +555,11 @@ ADD . /
 					cmd.Args = append(cmd.Args, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					todo.Configurations[j].runBinary(cwd, cmd)
+					s = todo.Configurations[j].runBinary(cwd, cmd)
+				}
+				if s != "" {
+					fmt.Println(s)
+					failures = append(failures, s)
 				}
 			}
 		}
@@ -601,16 +614,15 @@ func copyFile(fromDir, file string) {
 }
 
 // runBinary runs cmd and displays the output.
-// If the command returns an error, runBinary calls os.Exit(5)
-func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) {
+// If the command returns an error, returns an error string.
+func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
 	line := asCommandLine(cwd, cmd)
 	if verbose > 0 {
 		fmt.Println(line)
 	}
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Printf("There was an error [stdoutpipe] running '%s', %v\n", line, err)
-		os.Exit(5)
+		return fmt.Sprintf("Error [stdoutpipe] running '%s', %v", line, err)
 	}
 
 	bytes := make([]byte, 4096)
@@ -625,8 +637,7 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) {
 			break
 		}
 		if err != nil {
-			fmt.Printf("There was an error [read stdout] running '%s', %v\n", line, err)
-			os.Exit(5)
+			return fmt.Sprintf("Error [read stdout] running '%s', %v", line, err)
 		}
 	}
 
@@ -635,13 +646,13 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) {
 	if err != nil {
 		switch e := err.(type) {
 		case *exec.ExitError:
-			fmt.Printf("There was an error running '%s', stderr = %s\n", line, e.Stderr)
+			return fmt.Sprintf("Error running '%s', stderr = %s", line, e.Stderr)
 		default:
-			fmt.Printf("There was an error running '%s', %v\n", line, e)
+			return fmt.Sprintf("Error running '%s', %v", line, e)
 
 		}
-		os.Exit(5)
 	}
+	return ""
 }
 
 // testBinaryName returns the name of the binary produced by "go test -c"
