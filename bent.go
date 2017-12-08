@@ -21,19 +21,21 @@ type Configuration struct {
 	GcEnv      []string // Environment variables supplied to 'go test -c' for building
 	RunFlags   []string // Extra flags passed to the test binary
 	RunEnv     []string // Extra environment variables passed to the test binary
-	RunWrapper []string // Command and args to precede whatever the operation is; may fail in the sandbox.
+	RunWrapper []string // (Outermost) Command and args to precede whatever the operation is; may fail in the sandbox.
 	Disabled   bool     // True if this configuration is temporarily disabled
 	output     bytes.Buffer
 }
 
 type Benchmark struct {
-	Name         string // Short name for benchmark/test
-	Contact      string // Contact not used, but may be present in description
-	Repo         string // Repo + subdir where test resides, used for "go get -t -d ..."
-	Tests        string // Tests to run (regex for -test.run= )
-	Benchmarks   string // Benchmarks to run (regex for -test.bench= )
-	NotSandboxed bool   // True if this benchmark cannot or should not be run in a container.
-	Disabled     bool   // True if this benchmark is temporarily disabled.
+	Name       string   // Short name for benchmark/test
+	Contact    string   // Contact not used, but may be present in description
+	Repo       string   // Repo + subdir where test resides, used for "go get -t -d ..."
+	Tests      string   // Tests to run (regex for -test.run= )
+	Benchmarks string   // Benchmarks to run (regex for -test.bench= )
+	RunWrapper []string // (Inner) Command and args to precede whatever the operation is; may fail in the sandbox.
+	// e.g. benchmark may run as ConfigWrapper ConfigArg BenchWrapper BenchArg ActualBenchmark
+	NotSandboxed bool // True if this benchmark cannot or should not be run in a container.
+	Disabled     bool // True if this benchmark is temporarily disabled.
 }
 
 type Todo struct {
@@ -516,18 +518,39 @@ ADD . /
 				if b.Disabled {
 					continue
 				}
+
+				benchWrapper := ""
+				if len(b.RunWrapper) > 0 {
+					// Prepend slash, for now it runs from root of container or cwd + benchWrapper if not sandboxed.
+					benchWrapper = "/" + b.RunWrapper[0]
+				}
+
 				testBinaryName := b.Name + "_" + config.Name
 				var s string
+
+				var wrappersAndBin []string
+				var wrapperPrefix string
+				if b.NotSandboxed {
+					wrapperPrefix = cwd
+				}
+
+				if configWrapper != "" {
+					wrappersAndBin = append(wrappersAndBin, wrapperPrefix+configWrapper)
+					wrappersAndBin = append(wrappersAndBin, config.RunWrapper[1:]...)
+				}
+				if benchWrapper != "" {
+					wrappersAndBin = append(wrappersAndBin, wrapperPrefix+benchWrapper)
+					wrappersAndBin = append(wrappersAndBin, b.RunWrapper[1:]...)
+				}
+
 				if b.NotSandboxed {
 					testdir := gopath + "/src/" + b.Repo
 					bin := cwd + "/" + testBinDir + "/" + testBinaryName
-					var cmd *exec.Cmd
-					if configWrapper == "" {
-						cmd = exec.Command(bin, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
-					} else {
-						cmd = exec.Command(cwd+configWrapper, config.RunWrapper[1:]...)
-						cmd.Args = append(cmd.Args, bin, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
-					}
+					wrappersAndBin = append(wrappersAndBin, bin)
+
+					cmd := exec.Command(wrappersAndBin[0], wrappersAndBin[1:]...)
+					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+
 					cmd.Dir = testdir
 					cmd.Env = defaultEnv
 					if root != "" {
@@ -541,6 +564,9 @@ ADD . /
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
 					testdir := "/gopath/src/" + b.Repo
+					bin := "/" + testBinDir + "/" + testBinaryName
+					wrappersAndBin = append(wrappersAndBin, bin)
+
 					cmd := exec.Command("docker", "run", "--net=none",
 						"-w", testdir)
 					for _, e := range config.RunEnv {
@@ -548,11 +574,8 @@ ADD . /
 					}
 					cmd.Args = append(cmd.Args, "-e", "BENT_BINARY="+testBinaryName)
 					cmd.Args = append(cmd.Args, container)
-					if configWrapper != "" {
-						cmd.Args = append(cmd.Args, configWrapper)
-						cmd.Args = append(cmd.Args, config.RunWrapper[1:]...)
-					}
-					cmd.Args = append(cmd.Args, "/"+testBinDir+"/"+testBinaryName, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					cmd.Args = append(cmd.Args, wrappersAndBin...)
+					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					s = todo.Configurations[j].runBinary(cwd, cmd)

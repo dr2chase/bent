@@ -6,6 +6,7 @@
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
   Tests = "Test"
+  # RunWrapper = ["bar"]
   Benchmarks = "Benchmark(BaseTest2KB|FastTest2KB|Encoding4KBVerySparse)"
 
 [[Benchmarks]]
