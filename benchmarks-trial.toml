@@ -7,13 +7,28 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
   Disabled = true # Does not 'go get' cleanly
+# go get -d -t -v github.com/flanglet/kanzi/go/src/kanzi/benchmark
+# There was an error running 'go get', stderr = github.com/flanglet/kanzi (download)
+# package kanzi/bitstream: unrecognized import path "kanzi/bitstream" (import path does not begin with hostname)
+# package kanzi/entropy: unrecognized import path "kanzi/entropy" (import path does not begin with hostname)
+# package kanzi/function: unrecognized import path "kanzi/function" (import path does not begin with hostname)
+# package kanzi/io: unrecognized import path "kanzi/io" (import path does not begin with hostname)
+# package kanzi/transform: unrecognized import path "kanzi/transform" (import path does not begin with hostname)
+
 
 [[Benchmarks]]
   Name = "uber_zap"
-  Repo = "github.com/uber-go/zap/benchmarks"
+  # Repo = "github.com/uber-go/zap/benchmarks"
+  Repo = "go.uber.org/zap/benchmarks"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  # Disabled = true # Had certificate problems?
+  Disabled = true # Not building today
+
+[[Benchmarks]]
+  Name = "bindata"
+  Repo = "github.com/kevinburke/go-bindata"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
 
 # A noise-checking recent run (used to move some tests into benchmarks-50.toml)
 
