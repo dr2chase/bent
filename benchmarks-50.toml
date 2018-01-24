@@ -137,7 +137,7 @@
   Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
-  Disabled = "true"
+  Disabled = true
 
 [[Benchmarks]]
   Name = "uuid"
