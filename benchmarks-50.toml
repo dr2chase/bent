@@ -29,6 +29,7 @@
   Tests = "Test"
   Benchmarks = "BenchmarkChainRead_full_10k"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  Disabled = true # Broken as of 2018-03-05
 
 [[Benchmarks]]
   Name = "ethereum_sha3"

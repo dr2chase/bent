@@ -28,6 +28,7 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  Disabled = true # Broken as of 2018-03-05
 
 [[Benchmarks]]
   Name = "ethereum_sha3"
@@ -136,6 +137,7 @@
   Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache/"
   Tests = "Test"
   Benchmarks = "Benchmark"
+  Disabled = true # Go get failed as of 2018-03-05
 
 [[Benchmarks]]
   Name = "uuid"
