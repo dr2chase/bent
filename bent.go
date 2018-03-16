@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"flag"
 	"fmt"
@@ -12,6 +13,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 type Configuration struct {
@@ -257,7 +259,6 @@ ADD . /
 	// Normalize Test and Benchmark specs by replacing missing value with something that won't match anything.
 	// Process command-line-specified benchmarks
 	for i, bench := range todo.Benchmarks {
-		todo.Benchmarks[i].Disabled = todo.Benchmarks[i].Disabled
 		if benchmarks != nil {
 			_, present := benchmarks[bench.Name]
 			todo.Benchmarks[i].Disabled = !present
@@ -487,7 +488,9 @@ ADD . /
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
-			ioutil.WriteFile(testBinDir+"/"+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
+			if !config.Disabled { // Don't overwrite if something was disabled.
+				ioutil.WriteFile(testBinDir+"/"+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
+			}
 		}
 		if needSandbox {
 			// Print this a second time so it doesn't get missed.
@@ -643,30 +646,53 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
 	if verbose > 0 {
 		fmt.Println(line)
 	}
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Sprintf("Error [stdoutpipe] running '%s', %v", line, err)
 	}
-
-	bytes := make([]byte, 4096)
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Sprintf("Error [stderrpipe] running '%s', %v", line, err)
+	}
 	err = cmd.Start()
-	for {
-		n, err := stdout.Read(bytes)
-		if n > 0 {
-			c.output.Write(bytes[0:n])
-			fmt.Print(string(bytes[0:n]))
-		}
-		if err == io.EOF || n == 0 {
-			break
-		}
-		if err != nil {
-			return fmt.Sprintf("Error [read stdout] running '%s', %v", line, err)
-		}
+	if err != nil {
+		return fmt.Sprintf("Error [command start] running '%s', %v", line, err)
 	}
 
-	err = cmd.Wait()
+	var mu sync.Mutex
 
-	if err != nil {
+	f := func(r *bufio.Reader, done chan error) {
+		for {
+			bytes, err := r.ReadBytes('\n')
+			n := len(bytes)
+			if n > 0 {
+				mu.Lock()
+				c.output.Write(bytes[0:n])
+				fmt.Print(string(bytes[0:n]))
+				mu.Unlock()
+			}
+			if err == io.EOF || n == 0 {
+				break
+			}
+			if err != nil {
+				done <- err
+				return
+			}
+		}
+		done <- nil
+	}
+
+	doneS := make(chan error)
+	doneE := make(chan error)
+
+	go f(bufio.NewReader(stdout), doneS)
+	go f(bufio.NewReader(stderr), doneE)
+
+	errS := <-doneS
+	errE := <-doneE
+
+	if err := cmd.Wait(); err != nil {
 		switch e := err.(type) {
 		case *exec.ExitError:
 			return fmt.Sprintf("Error running '%s', stderr = %s", line, e.Stderr)
@@ -674,6 +700,12 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
 			return fmt.Sprintf("Error running '%s', %v", line, e)
 
 		}
+	}
+	if errS != nil {
+		return fmt.Sprintf("Error [read stdout] running '%s', %v", line, errS)
+	}
+	if errE != nil {
+		return fmt.Sprintf("Error [read stderr] running '%s', %v", line, errE)
 	}
 	return ""
 }
