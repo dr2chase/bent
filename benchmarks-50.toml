@@ -176,4 +176,11 @@
   Tests = "Test"
   Benchmarks = "Benchmark(TextMovementBetweenSegments|Growth_MultiSegment)"
 
+[[Benchmarks]]
+  Name = "uber_zap"
+  # Repo = "github.com/uber-go/zap/benchmarks"
+  Repo = "go.uber.org/zap/benchmarks"
+  Tests = "Test"
+  Benchmarks = "BenchmarkAddingFields/(Zap.Sugar|^[ais])"
+
 
