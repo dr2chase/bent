@@ -396,7 +396,7 @@ ADD . /
 
 			root := config.Root
 
-			for _, bench := range todo.Benchmarks {
+			for bi, bench := range todo.Benchmarks {
 				if bench.Disabled {
 					continue
 				}
@@ -434,19 +434,25 @@ ADD . /
 					default:
 						fmt.Printf("There was an error running 'go test', %v\n", e)
 					}
-					os.Exit(3)
-					return
+					if !test {
+						os.Exit(3)
+						return
+					}
+					bench.Disabled = true // if it won't compile, it won't run, either.
+					todo.Benchmarks[bi].Disabled = true
 				}
 				if verbose > 0 {
 					fmt.Print(string(output))
 				}
-				// Move generated binary to well known place.
-				from := cmd.Dir + "/" + bench.testBinaryName()
-				to := testBinDir + "/" + bench.Name + "_" + config.Name
-				err = os.Rename(from, to)
-				if err != nil {
-					fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
-					os.Exit(1)
+				if !bench.Disabled {
+					// Move generated binary to well known place.
+					from := cmd.Dir + "/" + bench.testBinaryName()
+					to := testBinDir + "/" + bench.Name + "_" + config.Name
+					err = os.Rename(from, to)
+					if err != nil {
+						fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
+						os.Exit(1)
+					}
 				}
 			}
 			os.RemoveAll("pkg")
