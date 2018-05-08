@@ -344,13 +344,15 @@ ADD . /
 
 	var needSandbox bool // true if any benchmark needs a sandbox
 
+	var getAndBuildFailures []string
+
 	if runContainer == "" {
 		if verbose == 0 {
 			fmt.Print("Go getting")
 		}
 
 		// Obtain (go get -d -t -v bench.Repo) all benchmarks, once, populating src
-		for _, bench := range todo.Benchmarks {
+		for i, bench := range todo.Benchmarks {
 			if bench.Disabled {
 				continue
 			}
@@ -367,9 +369,10 @@ ADD . /
 			_, err := cmd.Output()
 			if err != nil {
 				ee := err.(*exec.ExitError)
-				fmt.Printf("There was an error running 'go get', stderr = %s\n", ee.Stderr)
-				os.Exit(2)
-				return
+				s := fmt.Sprintf("There was an error running 'go get', stderr = %s", ee.Stderr)
+				fmt.Println(s + "DISABLING benchmark " + bench.Name)
+				getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+				todo.Benchmarks[i].Disabled = true
 			}
 		}
 		if verbose == 0 {
@@ -427,21 +430,18 @@ ADD . /
 				}
 				output, err := cmd.CombinedOutput()
 				if err != nil {
-					fmt.Println(string(output))
+					s := ""
 					switch e := err.(type) {
 					case *exec.ExitError:
-						fmt.Printf("There was an error running 'go test', stderr = %s\n", e.Stderr)
+						s = fmt.Sprintf("There was an error running 'go test', output = %s", output)
 					default:
-						fmt.Printf("There was an error running 'go test', %v\n", e)
+						s = fmt.Sprintf("There was an error running 'go test', output = %s, error = %v", output, e)
 					}
-					if !test {
-						os.Exit(3)
-						return
-					}
+					fmt.Println(s + "DISABLING benchmark " + bench.Name)
+					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
 					bench.Disabled = true // if it won't compile, it won't run, either.
 					todo.Benchmarks[bi].Disabled = true
-				}
-				if verbose > 0 {
+				} else if verbose > 0 {
 					fmt.Print(string(output))
 				}
 				if !bench.Disabled {
@@ -505,6 +505,12 @@ ADD . /
 		if len(failures) > 0 {
 			fmt.Println("FAILURES:")
 			for _, f := range failures {
+				fmt.Println(f)
+			}
+		}
+		if len(getAndBuildFailures) > 0 {
+			fmt.Println("Get and build failures:")
+			for _, f := range getAndBuildFailures {
 				fmt.Println(f)
 			}
 		}
