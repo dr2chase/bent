@@ -16,6 +16,11 @@ import (
 	"sync"
 )
 
+type BenchStat struct {
+	Name                        string
+	RealTime, UserTime, SysTime int64 // nanoseconds, -1 if missing.
+}
+
 type Configuration struct {
 	Name       string   // Short name used for binary names, mention on command line
 	Root       string   // Specific Go root to use for this trial
@@ -26,6 +31,7 @@ type Configuration struct {
 	RunWrapper []string // (Outermost) Command and args to precede whatever the operation is; may fail in the sandbox.
 	Disabled   bool     // True if this configuration is temporarily disabled
 	output     bytes.Buffer
+	buildStats []BenchStat
 }
 
 type Benchmark struct {
@@ -60,7 +66,7 @@ func main() {
 	noSandbox := false
 	requireSandbox := false
 	getOnly := false
-	runContainer := ""
+	runContainer := "" // if nonempty, skip builds and use existing named container (or binaries if -U )
 	wikiTable := false // emit the tests in a form usable in a wiki table
 
 	var benchmarksString, configurationsString string
@@ -346,7 +352,7 @@ ADD . /
 
 	var getAndBuildFailures []string
 
-	if runContainer == "" {
+	if runContainer == "" { // If not reusing binaries/container...
 		if verbose == 0 {
 			fmt.Print("Go getting")
 		}
@@ -392,7 +398,7 @@ ADD . /
 		if verbose == 0 {
 			fmt.Print("Compiling")
 		}
-		for _, config := range todo.Configurations {
+		for ci, config := range todo.Configurations {
 			if config.Disabled {
 				continue
 			}
@@ -407,7 +413,8 @@ ADD . /
 				if root != "" {
 					gocmd = root + "bin/" + gocmd
 				}
-				cmd := exec.Command(gocmd, "test", "-a", "-c")
+				// Prefix with time:
+				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-a", "-c")
 				if config.GcFlags != "" {
 					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 				}
@@ -441,10 +448,25 @@ ADD . /
 					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
 					bench.Disabled = true // if it won't compile, it won't run, either.
 					todo.Benchmarks[bi].Disabled = true
-				} else if verbose > 0 {
-					fmt.Print(string(output))
 				}
 				if !bench.Disabled {
+					soutput := string(output)
+					// Capture times from the end of the output.
+					rbt := extractTime(soutput, "real")
+					ubt := extractTime(soutput, "user")
+					sbt := extractTime(soutput, "sys")
+					config.buildStats = append(config.buildStats,
+						BenchStat{Name: bench.Name, RealTime: rbt, UserTime: ubt, SysTime: sbt})
+					todo.Configurations[ci].buildStats = config.buildStats
+					// Trim /usr/bin/time info from soutput, it's ugly
+					if verbose > 0 {
+						i := strings.LastIndex(soutput, "real")
+						if i >= 0 {
+							soutput = soutput[:i]
+						}
+						fmt.Print(soutput)
+					}
+
 					// Move generated binary to well known place.
 					from := cmd.Dir + "/" + bench.testBinaryName()
 					to := testBinDir + "/" + bench.Name + "_" + config.Name
@@ -458,6 +480,26 @@ ADD . /
 			os.RemoveAll("pkg")
 			os.RemoveAll("bin")
 		}
+
+		// Write build stats to testbin.
+		for _, config := range todo.Configurations {
+			if !config.Disabled { // Don't overwrite if something was disabled.
+				buf := new(bytes.Buffer)
+				if verbose > 0 {
+					fmt.Printf("Build stats for configuration %s\n", config.Name)
+				}
+				for _, b := range config.buildStats {
+					s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
+						strings.Title(b.Name), b.RealTime, b.UserTime, b.SysTime)
+					if verbose > 0 {
+						fmt.Print(s)
+					}
+					buf.WriteString(s)
+				}
+				ioutil.WriteFile(testBinDir+"/"+config.Name+".build", buf.Bytes(), os.ModePerm)
+			}
+		}
+
 		if verbose == 0 {
 			fmt.Println()
 		}
@@ -487,6 +529,9 @@ ADD . /
 		}
 	} else {
 		container = runContainer
+		if getOnly { // -r -g is a bit of a no-op, but that's what it implies.
+			return
+		}
 	}
 
 	var failures []string
@@ -725,6 +770,33 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
 // testBinaryName returns the name of the binary produced by "go test -c"
 func (b *Benchmark) testBinaryName() string {
 	return b.Repo[strings.LastIndex(b.Repo, "/")+1:] + ".test"
+}
+
+// extractTime extracts a time (from /usr/bin/time -p) based on the tag
+// and returns the time converted to nanoseconds.  Missing times and bad
+// data result in NaN.
+func extractTime(output, label string) int64 {
+	// find tag in first column
+	li := strings.LastIndex(output, label)
+	if li < 0 {
+		return -1
+	}
+	output = output[li+len(label):]
+	// lose intervening white space
+	li = strings.IndexAny(output, "0123456789-.eEdD")
+	if li < 0 {
+		return -1
+	}
+	output = output[li:]
+	li = strings.IndexAny(output, "\n\r\t ")
+	if li >= 0 { // failing to find EOL is a special case of done.
+		output = output[:li]
+	}
+	x, err := strconv.ParseFloat(output, 64)
+	if err != nil {
+		return -1
+	}
+	return int64(x * 1000 * 1000 * 1000)
 }
 
 // inheritEnv extracts ev from the os environment and adds
