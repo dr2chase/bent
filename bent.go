@@ -66,12 +66,15 @@ func main() {
 	noSandbox := false
 	requireSandbox := false
 	getOnly := false
-	runContainer := "" // if nonempty, skip builds and use existing named container (or binaries if -U )
-	wikiTable := false // emit the tests in a form usable in a wiki table
+	runContainer := ""   // if nonempty, skip builds and use existing named container (or binaries if -U )
+	wikiTable := false   // emit the tests in a form usable in a wiki table
+	explicitAll := false // Include "-a" on "go test -c" test build
 
 	var benchmarksString, configurationsString string
 
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
+
+	flag.BoolVar(&explicitAll, "a", explicitAll, "add '-a' flag to 'go test -c' to demand full recompile")
 
 	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names (default is all)")
 	flag.StringVar(&benchFile, "B", benchFile, "name of file describing benchmarks")
@@ -100,8 +103,10 @@ func main() {
 			`
 %s obtains the benchmarks/tests listed in %s and compiles 
 and runs them according to the flags and environment 
-variables supplied in %s.  Builds use -a to ensure everything
-is compiled with the same configuration flags.
+variables supplied in %s. Specifying "-a" will pass "-a" to
+test compilations, but normally this should not be needed
+and only slows down builds. (Don't forget to specify "all=..."
+for GCFLAGS if you want those applied to the entire build.)
 
 Both of these files can be changed with the -B and -C flags; the full
 suite of benchmarks in benchmarks-all.toml is somewhat time-consuming.
@@ -414,7 +419,10 @@ ADD . /
 					gocmd = root + "bin/" + gocmd
 				}
 				// Prefix with time:
-				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-a", "-c")
+				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-c")
+				if explicitAll {
+					cmd.Args = append(cmd.Args, "-a")
+				}
 				if config.GcFlags != "" {
 					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 				}
