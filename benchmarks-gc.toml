@@ -13,9 +13,11 @@
   Tests = "Test"
   Benchmarks = "Benchmark(InsertChain_ring)" # ChainRead crashes as of 1.10 on 2018-03-16
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  Disabled = true
 
 [[Benchmarks]]
   Name = "minio"
   Repo = "github.com/minio/minio/cmd"
   Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGetObject.*Mb" # not Get|Put|List
+  Disabled = true

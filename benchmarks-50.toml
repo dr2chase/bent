@@ -29,7 +29,7 @@
   Tests = "Test"
   Benchmarks = "BenchmarkChainRead_full_10k"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  Disabled = true # Broken as of 2018-03-05
+  # Disabled = true # Broken as of 2018-03-05
 
 [[Benchmarks]]
   Name = "ethereum_sha3"
@@ -50,7 +50,7 @@
   Tests = "Test"
   Benchmarks = "BenchmarkOpDiv128"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  Disabled = true # Broken as of 2018-04-24
+  # Disabled = true # Broken as of 2018-04-24
 
 [[Benchmarks]]
   Name = "ethereum_trie"
@@ -58,14 +58,14 @@
   Tests = "Test"
   Benchmarks = "Benchmark" # Prove and VerifyProof are noisy
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  Disabled = true # These seem to be really noisy or tiny
+  # Disabled = true # These seem to be really noisy or tiny
 
 [[Benchmarks]]
   Name = "ethereum_whisperv5"
   Repo = "github.com/ethereum/go-ethereum/whisper/whisperv5"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # These seem to be really noisy
+  # Disabled = true # These seem to be really noisy
 
 [[Benchmarks]]
   Name = "eolian_dsp"
@@ -85,7 +85,7 @@
   Repo = "github.com/minio/minio/cmd"
   Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGetObject5MbFS" # not Get|Put|List
-  Disabled = true # Broken as of 2018-04-24
+  # Disabled = true # Broken as of 2018-04-24
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
@@ -122,14 +122,14 @@
   Repo = "github.com/gohugoio/hugo/hugolib"
   Tests = "Test"
   Benchmarks = "BenchmarkParsePage"
-  Disabled = true # Broken as of 2018-04-24
+  # Disabled = true # Broken as of 2018-04-24
 
 [[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
   Repo = "github.com/gohugoio/hugo/hugolib"
   Tests = "Test"
   Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20,shortcodes,render-12" 
-  Disabled = true # Broken as of 2018-04-24
+  # Disabled = true # Broken as of 2018-04-24
 
 [[Benchmarks]]
   Name = "k8s_api"
@@ -139,10 +139,10 @@
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
-  Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache"
+  Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
-  Disabled = true
+  # Disabled = true
 
 [[Benchmarks]]
   Name = "uuid"

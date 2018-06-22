@@ -1,0 +1,9 @@
+#!/bin/bash
+PID=$$
+TD=/tmp/bent-${PID}
+mkdir -p ${TD}
+TMPDIR=${TD} "$@"
+rm -rf ${TD}
+if [ "x${BENT_BINARY}" != "x" ] ; then
+	rm -rf /tmp/${BENT_BINARY}*
+fi

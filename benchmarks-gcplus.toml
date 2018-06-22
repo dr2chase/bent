@@ -4,7 +4,7 @@
   Name = "ethereum_storage"
   Repo = "github.com/ethereum/go-ethereum/swarm/storage"
   Tests = "Test"
-  Benchmarks = "Benchmark(Join|SplitTree)" # SplitPyramid seems to have a bug
+  Benchmarks = "Benchmark(Join|SplitTree)_[678]" # SplitPyramid seems to have a bug
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]

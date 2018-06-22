@@ -81,7 +81,8 @@
   Name = "minio"
   Repo = "github.com/minio/minio/cmd"
   Tests = "" # Don't run these tests; they hang, etc.
-  Benchmarks = "BenchmarkGet" # not Get|Put|List
+  Benchmarks = "BenchmarkGetObject[^V125]" # not Get|Put|List
+  disabled = true # seems not to work at all on Linux 2018-06-18
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
@@ -117,7 +118,7 @@
   Name = "hugo_hugolib"
   Repo = "github.com/gohugoio/hugo/hugolib"
   Tests = "Test"
-  Benchmarks = "Benchmark([^S]|S[^i])" 
+  Benchmarks = "Benchmark(S[och]|Get|Replace)" 
 
 [[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
@@ -133,10 +134,10 @@
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
-  Repo = "k8s.io/kubernetes/plugin/pkg/scheduler/schedulercache/"
+  Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # Go get failed as of 2018-03-05
+  # Disabled = true # Go get failed as of 2018-03-05
 
 [[Benchmarks]]
   Name = "uuid"

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 type BenchStat struct {
@@ -66,15 +67,15 @@ func main() {
 	noSandbox := false
 	requireSandbox := false
 	getOnly := false
-	runContainer := ""   // if nonempty, skip builds and use existing named container (or binaries if -U )
-	wikiTable := false   // emit the tests in a form usable in a wiki table
-	explicitAll := false // Include "-a" on "go test -c" test build
+	runContainer := "" // if nonempty, skip builds and use existing named container (or binaries if -U )
+	wikiTable := false // emit the tests in a form usable in a wiki table
+	explicitAll := 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
 
 	var benchmarksString, configurationsString string
 
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
 
-	flag.BoolVar(&explicitAll, "a", explicitAll, "add '-a' flag to 'go test -c' to demand full recompile")
+	flag.Var((*count)(&explicitAll), "a", "add '-a' flag to 'go test -c' to demand full recompile. Repeat or assign a value for repeat builds for benchmarking")
 
 	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names (default is all)")
 	flag.StringVar(&benchFile, "B", benchFile, "name of file describing benchmarks")
@@ -179,6 +180,8 @@ benchstat.
 		os.Chmod("foo", 0755)
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-50.toml")
+		copyFile(gopathInit+"/"+srcPath, "benchmarks-gc.toml")
+		copyFile(gopathInit+"/"+srcPath, "benchmarks-gcplus.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-trial.toml")
 		copyFile(gopathInit+"/"+srcPath, "configurations-sample.toml")
 
@@ -418,46 +421,59 @@ ADD . /
 				if root != "" {
 					gocmd = root + "bin/" + gocmd
 				}
-				// Prefix with time:
-				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-c")
-				if explicitAll {
-					cmd.Args = append(cmd.Args, "-a")
-				}
-				if config.GcFlags != "" {
-					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
-				}
-				cmd.Args = append(cmd.Args, ".")
-				cmd.Dir = gopath + "/src/" + bench.Repo
-				cmd.Env = defaultEnv
-				if !bench.NotSandboxed {
-					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-					needSandbox = true
-				}
-				if root != "" {
-					cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
-				}
-				cmd.Env = append(cmd.Env, config.GcEnv...)
 
-				if verbose > 0 {
-					fmt.Println(asCommandLine(cwd, cmd))
-				} else {
-					fmt.Print(".")
+				// It is possible to request repeated builds.
+				// a negative build count results in repeated builds but
+				buildCount := explicitAll
+				if buildCount < 0 {
+					buildCount = -buildCount
 				}
-				output, err := cmd.CombinedOutput()
-				if err != nil {
-					s := ""
-					switch e := err.(type) {
-					case *exec.ExitError:
-						s = fmt.Sprintf("There was an error running 'go test', output = %s", output)
-					default:
-						s = fmt.Sprintf("There was an error running 'go test', output = %s, error = %v", output, e)
+				if buildCount == 0 {
+					buildCount = 1
+				}
+
+				for buildCount > 0 {
+					buildCount--
+					// Prefix with time for build benchmarking:
+					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-c")
+					if explicitAll > 0 {
+						cmd.Args = append(cmd.Args, "-a")
 					}
-					fmt.Println(s + "DISABLING benchmark " + bench.Name)
-					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
-					bench.Disabled = true // if it won't compile, it won't run, either.
-					todo.Benchmarks[bi].Disabled = true
-				}
-				if !bench.Disabled {
+					if config.GcFlags != "" {
+						cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+					}
+					cmd.Args = append(cmd.Args, ".")
+					cmd.Dir = gopath + "/src/" + bench.Repo
+					cmd.Env = defaultEnv
+					if !bench.NotSandboxed {
+						cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+						needSandbox = true
+					}
+					if root != "" {
+						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+					}
+					cmd.Env = append(cmd.Env, config.GcEnv...)
+
+					if verbose > 0 {
+						fmt.Println(asCommandLine(cwd, cmd))
+					} else {
+						fmt.Print(".")
+					}
+					output, err := cmd.CombinedOutput()
+					if err != nil {
+						s := ""
+						switch e := err.(type) {
+						case *exec.ExitError:
+							s = fmt.Sprintf("There was an error running 'go test', output = %s", output)
+						default:
+							s = fmt.Sprintf("There was an error running 'go test', output = %s, error = %v", output, e)
+						}
+						fmt.Println(s + "DISABLING benchmark " + bench.Name)
+						getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+						bench.Disabled = true // if it won't compile, it won't run, either.
+						todo.Benchmarks[bi].Disabled = true
+						break
+					}
 					soutput := string(output)
 					// Capture times from the end of the output.
 					rbt := extractTime(soutput, "real")
@@ -474,8 +490,8 @@ ADD . /
 						}
 						fmt.Print(soutput)
 					}
-
 					// Move generated binary to well known place.
+					// This interacts with a negative "-a" (meaning repeat build but w/o "-a") to at least force a relink
 					from := cmd.Dir + "/" + bench.testBinaryName()
 					to := testBinDir + "/" + bench.Name + "_" + config.Name
 					err = os.Rename(from, to)
@@ -544,11 +560,13 @@ ADD . /
 
 	var failures []string
 
+	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
+
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			if !config.Disabled { // Don't overwrite if something was disabled.
-				ioutil.WriteFile(testBinDir+"/"+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
+				ioutil.WriteFile(testBinDir+"/"+runstamp+"."+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
 			}
 		}
 		if needSandbox {
@@ -850,7 +868,7 @@ func csToSet(s string) map[string]bool {
 
 // count is a flag.Value that is like a flag.Bool and a flag.Int.
 // If used as -name, it increments the count, but -name=x sets the count.
-// Used for verbose flag -v.
+// Used for verbose flag -v and build-all flag -a
 type count int
 
 func (c *count) String() string {
