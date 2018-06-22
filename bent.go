@@ -424,6 +424,7 @@ ADD . /
 
 				// It is possible to request repeated builds.
 				// a negative build count results in repeated builds but
+				// does not pass -a to the builds.
 				buildCount := explicitAll
 				if buildCount < 0 {
 					buildCount = -buildCount
