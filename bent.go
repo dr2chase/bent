@@ -31,8 +31,8 @@ type Configuration struct {
 	RunEnv     []string // Extra environment variables passed to the test binary
 	RunWrapper []string // (Outermost) Command and args to precede whatever the operation is; may fail in the sandbox.
 	Disabled   bool     // True if this configuration is temporarily disabled
-	output     bytes.Buffer
 	buildStats []BenchStat
+	writer     *os.File
 }
 
 type Benchmark struct {
@@ -543,7 +543,7 @@ ADD . /
 			if err != nil {
 				ee := err.(*exec.ExitError)
 				fmt.Printf("There was an error running 'docker build', stderr = %s\n", ee.Stderr)
-				os.Exit(4)
+				os.Exit(2)
 				return
 			}
 			container = strings.TrimSpace(string(output))
@@ -563,11 +563,23 @@ ADD . /
 
 	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
 
+	for i, config := range todo.Configurations {
+		if !config.Disabled { // Don't overwrite if something was disabled.
+			s := testBinDir + "/" + runstamp + "." + config.Name + ".stdout"
+			f, err := os.OpenFile(s, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+			if err != nil {
+				fmt.Printf("There was an error opening %s for output, error %v\n", s, err)
+				os.Exit(2)
+			}
+			todo.Configurations[i].writer = f
+		}
+	}
+
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			if !config.Disabled { // Don't overwrite if something was disabled.
-				ioutil.WriteFile(testBinDir+"/"+runstamp+"."+config.Name+".stdout", config.output.Bytes(), os.ModePerm)
+				config.writer.Close()
 			}
 		}
 		if needSandbox {
@@ -752,7 +764,11 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
 			n := len(bytes)
 			if n > 0 {
 				mu.Lock()
-				c.output.Write(bytes[0:n])
+				nw, err := c.writer.Write(bytes[0:n])
+				if err != nil {
+					fmt.Printf("Error writing, err = %v, nwritten = %d, nrequested = %d\n", err, nw, n)
+				}
+				c.writer.Sync()
 				fmt.Print(string(bytes[0:n]))
 				mu.Unlock()
 			}
