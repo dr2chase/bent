@@ -65,7 +65,7 @@
   Repo = "github.com/ethereum/go-ethereum/whisper/whisperv5"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  # Disabled = true # These seem to be really noisy
+  Disabled = true # These seem to be really noisy
 
 [[Benchmarks]]
   Name = "eolian_dsp"
