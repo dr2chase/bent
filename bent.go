@@ -261,6 +261,12 @@ ADD . /
 			}
 			todo.Configurations[i].Root = root
 		}
+		for j, s := range trial.GcEnv {
+			trial.GcEnv[j] = os.ExpandEnv(s)
+		}
+		for j, s := range trial.RunEnv {
+			trial.RunEnv[j] = os.ExpandEnv(s)
+		}
 	}
 	for b, v := range configurations {
 		if v {
