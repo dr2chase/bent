@@ -41,6 +41,7 @@ type Benchmark struct {
 	Repo       string   // Repo + subdir where test resides, used for "go get -t -d ..."
 	Tests      string   // Tests to run (regex for -test.run= )
 	Benchmarks string   // Benchmarks to run (regex for -test.bench= )
+	BuildFlags []string // Flags for building test (e.g., -tags purego)
 	RunWrapper []string // (Inner) Command and args to precede whatever the operation is; may fail in the sandbox.
 	// e.g. benchmark may run as ConfigWrapper ConfigArg BenchWrapper BenchArg ActualBenchmark
 	NotSandboxed bool // True if this benchmark cannot or should not be run in a container.
@@ -442,7 +443,8 @@ ADD . /
 				for buildCount > 0 {
 					buildCount--
 					// Prefix with time for build benchmarking:
-					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-c")
+					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-vet=off", "-c")
+					cmd.Args = append(cmd.Args, bench.BuildFlags...)
 					if explicitAll > 0 {
 						cmd.Args = append(cmd.Args, "-a")
 					}
@@ -489,14 +491,7 @@ ADD . /
 					config.buildStats = append(config.buildStats,
 						BenchStat{Name: bench.Name, RealTime: rbt, UserTime: ubt, SysTime: sbt})
 					todo.Configurations[ci].buildStats = config.buildStats
-					// Trim /usr/bin/time info from soutput, it's ugly
-					if verbose > 0 {
-						i := strings.LastIndex(soutput, "real")
-						if i >= 0 {
-							soutput = soutput[:i]
-						}
-						fmt.Print(soutput)
-					}
+
 					// Move generated binary to well known place.
 					// This interacts with a negative "-a" (meaning repeat build but w/o "-a") to at least force a relink
 					from := cmd.Dir + "/" + bench.testBinaryName()
@@ -505,6 +500,15 @@ ADD . /
 					if err != nil {
 						fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
 						os.Exit(1)
+					}
+					// Trim /usr/bin/time info from soutput, it's ugly
+					if verbose > 0 {
+						fmt.Println("mv " + from + " " + to + "")
+						i := strings.LastIndex(soutput, "real")
+						if i >= 0 {
+							soutput = soutput[:i]
+						}
+						fmt.Print(soutput)
 					}
 				}
 			}

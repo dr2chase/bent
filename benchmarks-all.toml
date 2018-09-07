@@ -182,6 +182,63 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
 
+[[Benchmarks]]
+  Name = "bindata"
+  Repo = "github.com/kevinburke/go-bindata"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "cespare_mph"
+  Repo = "github.com/cespare/mph"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+# Used by InfluxDB and Prometheus
+[[Benchmarks]]
+  Name = "cespare_xxhash"
+  Repo = "github.com/cespare/xxhash"
+  BuildFlags = ["-tags", "purego"]
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "gtank_blake2s"
+  Repo = "github.com/gtank/blake2s"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "gtank_ed25519"
+  Repo = "github.com/gtank/ed25519"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "nelsam_gxui_interval"
+  Repo = "github.com/nelsam/gxui/interval"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "ajstarks_deck_generate"
+  Repo = "github.com/ajstarks/deck/generate"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "benhoyt_goawk"
+  Repo = "github.com/benhoyt/goawk/interp"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "ericlagergren_decimal"
+  Repo = "github.com/ericlagergren/decimal/benchmarks"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+
 # These are the known-noisy benchmarks
 # 
 # AddScaledVec10000Inc1-12  4.58µs ±19% 4.55µs ±13% 4.83µs ±12% 4.77µs ±15%

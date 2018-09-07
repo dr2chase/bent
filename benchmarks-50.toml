@@ -187,4 +187,58 @@
   Tests = "Test"
   Benchmarks = "BenchmarkAddingFields/(Zap.Sugar|^[ais])"
 
+[[Benchmarks]]
+  Name = "bindata"
+  Repo = "github.com/kevinburke/go-bindata"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
 
+[[Benchmarks]]
+  Name = "cespare_mph"
+  Repo = "github.com/cespare/mph"
+  Tests = "Test"
+  Benchmarks = "BenchmarkBuild"
+
+# Used by InfluxDB and Prometheus
+[[Benchmarks]]
+  Name = "cespare_xxhash"
+  Repo = "github.com/cespare/xxhash"
+  BuildFlags = ["-tags", "purego"]
+  Tests = "Test"
+  Benchmarks = "BenchmarkHashes/xxhash-string,n=10_MB"
+
+[[Benchmarks]]
+  Name = "gtank_blake2s"
+  Repo = "github.com/gtank/blake2s"
+  Tests = "Test"
+  Benchmarks = "BenchmarkHash8K"
+
+[[Benchmarks]]
+  Name = "gtank_ed25519"
+  Repo = "github.com/gtank/ed25519"
+  Tests = "Test"
+  Benchmarks = "Benchmark(IsOnCurve|ScalarMult)"
+
+[[Benchmarks]]
+  Name = "nelsam_gxui_interval"
+  Repo = "github.com/nelsam/gxui/interval"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "ajstarks_deck_generate"
+  Repo = "github.com/ajstarks/deck/generate"
+  Tests = "Test"
+  Benchmarks = "Benchmark(Polygon|Arc)"
+
+[[Benchmarks]]
+  Name = "benhoyt_goawk"
+  Repo = "github.com/benhoyt/goawk/interp"
+  Tests = "Test"
+  Benchmarks = "BenchmarkR"
+
+[[Benchmarks]]
+  Name = "ericlagergren_decimal"
+  Repo = "github.com/ericlagergren/decimal/benchmarks"
+  Tests = "Test"
+  Benchmarks = "BenchmarkPi_decimal_Go_9"
