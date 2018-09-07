@@ -179,6 +179,8 @@ benchstat.
 		}
 		copyFile(gopathInit+"/"+srcPath, "foo")
 		os.Chmod("foo", 0755)
+		copyFile(gopathInit+"/"+srcPath, "tmpclr")
+		os.Chmod("tmpclr", 0755)
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-50.toml")
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-gc.toml")

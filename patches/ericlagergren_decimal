@@ -1,7 +1,7 @@
 cd gopath/src/github.com/ericlagergren/decimal
 patch -p1 <<"EOF"
 diff --git a/benchmarks/pi_test.go b/benchmarks/pi_test.go
-index 86d1a15..3b0cdef 100644
+index 86d1a15..b1310ee 100644
 --- a/benchmarks/pi_test.go
 +++ b/benchmarks/pi_test.go
 @@ -67,8 +67,8 @@ var (
@@ -15,7 +15,7 @@ index 86d1a15..3b0cdef 100644
  	ssdecEight     = ssdec.New(8, 0)
  	ssdecThirtyTwo = ssdec.New(32, 0)
  	infEight       = inf.NewDec(8, 0)
-@@ -131,13 +131,13 @@ func calcPi_shopSpring(prec int32) ssdec.Decimal {
+@@ -131,16 +131,16 @@ func calcPi_shopSpring(prec int32) ssdec.Decimal {
  
  func calcPi_dnum() dnum.Dnum {
  	var (
@@ -35,5 +35,9 @@ index 86d1a15..3b0cdef 100644
 +		da    = dnum.FromInt(24)
  	)
  
- 	for dnum.Cmp(s, lasts) != 0 {
+-	for dnum.Cmp(s, lasts) != 0 {
++	for dnum.Compare(s, lasts) != 0 {
+ 		lasts = s
+ 		n = dnum.Add(n, na)
+ 		na = dnum.Add(na, dnumEight)
 EOF

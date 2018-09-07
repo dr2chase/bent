@@ -29,7 +29,6 @@
   Tests = "Test"
   Benchmarks = "BenchmarkChainRead_full_10k"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  # Disabled = true # Broken as of 2018-03-05
 
 [[Benchmarks]]
   Name = "ethereum_sha3"
@@ -50,7 +49,6 @@
   Tests = "Test"
   Benchmarks = "BenchmarkOpDiv128"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  # Disabled = true # Broken as of 2018-04-24
 
 [[Benchmarks]]
   Name = "ethereum_trie"
@@ -58,21 +56,6 @@
   Tests = "Test"
   Benchmarks = "Benchmark" # Prove and VerifyProof are noisy
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  # Disabled = true # These seem to be really noisy or tiny
-
-[[Benchmarks]]
-  Name = "ethereum_whisperv5"
-  Repo = "github.com/ethereum/go-ethereum/whisper/whisperv5"
-  Tests = "Test"
-  Benchmarks = "Benchmark"
-  Disabled = true # These seem to be really noisy
-
-[[Benchmarks]]
-  Name = "eolian_dsp"
-  Repo = "buddin.us/eolian/dsp"
-  Tests = "Test"
-  Benchmarks = "Benchmark"
-  Disabled = true # Not always resolving host,
 
 [[Benchmarks]]
   Name = "spexs2"
