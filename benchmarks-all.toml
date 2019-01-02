@@ -2,6 +2,12 @@
 # The noisy ones are listed at the bottom
 
 [[Benchmarks]]
+  Name = "kanzi"
+  Repo = "github.com/flanglet/kanzi-go/benchmark"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
   Tests = "Test"
