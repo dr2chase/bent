@@ -528,27 +528,22 @@ ADD . /
 					}
 				}
 			}
+			// Done building this configuration, report and record build stats to testbin
+			buf := new(bytes.Buffer)
+			if verbose > 0 {
+				fmt.Printf("Build stats for configuration %s\n", config.Name)
+			}
+			for _, b := range config.buildStats {
+				s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
+					strings.Title(b.Name), b.RealTime, b.UserTime, b.SysTime)
+				if verbose > 0 {
+					fmt.Print(s)
+				}
+				buf.WriteString(s)
+			}
+			ioutil.WriteFile(testBinDir+"/"+config.Name+".build", buf.Bytes(), os.ModePerm)
 			os.RemoveAll("pkg")
 			os.RemoveAll("bin")
-		}
-
-		// Write build stats to testbin.
-		for _, config := range todo.Configurations {
-			if !config.Disabled { // Don't overwrite if something was disabled.
-				buf := new(bytes.Buffer)
-				if verbose > 0 {
-					fmt.Printf("Build stats for configuration %s\n", config.Name)
-				}
-				for _, b := range config.buildStats {
-					s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
-						strings.Title(b.Name), b.RealTime, b.UserTime, b.SysTime)
-					if verbose > 0 {
-						fmt.Print(s)
-					}
-					buf.WriteString(s)
-				}
-				ioutil.WriteFile(testBinDir+"/"+config.Name+".build", buf.Bytes(), os.ModePerm)
-			}
 		}
 
 		if verbose == 0 {
