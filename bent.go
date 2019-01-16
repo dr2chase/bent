@@ -379,7 +379,8 @@ ADD . /
 	}
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", gopath)
 
-	var needSandbox bool // true if any benchmark needs a sandbox
+	var needSandbox bool    // true if any benchmark needs a sandbox
+	var needNotSandbox bool // true if any benchmark needs to be not sandboxed
 
 	var getAndBuildFailures []string
 
@@ -397,6 +398,7 @@ ADD . /
 			cmd.Env = defaultEnv
 			if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
 				cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+
 			}
 			if verbose > 0 {
 				fmt.Println(asCommandLine(cwd, cmd))
@@ -411,6 +413,8 @@ ADD . /
 				getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
 				todo.Benchmarks[i].Disabled = true
 			}
+			needSandbox = !bench.NotSandboxed || needSandbox
+			needNotSandbox = bench.NotSandboxed || needNotSandbox
 		}
 		if verbose == 0 {
 			fmt.Println()
@@ -436,13 +440,60 @@ ADD . /
 
 			root := config.Root
 
+			gocmd := "go"
+			if root != "" {
+				gocmd = root + "bin/" + gocmd
+			}
+
+			buildLibrary := func(withAltOS bool) {
+				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "install")
+				//cmd.Args = append(cmd.Args, bench.BuildFlags...)
+				//if explicitAll > 0 {
+				//	cmd.Args = append(cmd.Args, "-a")
+				//}
+				if config.GcFlags != "" {
+					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+				}
+				cmd.Args = append(cmd.Args, "std")
+				//cmd.Dir = gopath + "/src/" + bench.Repo
+				cmd.Env = defaultEnv
+				if withAltOS {
+					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+				}
+				if root != "" {
+					cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+				}
+				cmd.Env = append(cmd.Env, config.GcEnv...)
+
+				if verbose > 0 {
+					fmt.Println(asCommandLine(cwd, cmd))
+				} else {
+					fmt.Print("I")
+				}
+				output, err := cmd.CombinedOutput()
+				if err != nil {
+					s := ""
+					switch e := err.(type) {
+					case *exec.ExitError:
+						s = fmt.Sprintf("There was an error running 'go install std', output = %s", output)
+					default:
+						s = fmt.Sprintf("There was an error running 'go install std', output = %s, error = %v", output, e)
+					}
+					fmt.Println(s)
+				}
+			}
+
+			// Prebuild the library for this configuration
+			if needSandbox {
+				buildLibrary(true)
+			}
+			if needNotSandbox {
+				buildLibrary(false)
+			}
+
 			for bi, bench := range todo.Benchmarks {
 				if bench.Disabled {
 					continue
-				}
-				gocmd := "go"
-				if root != "" {
-					gocmd = root + "bin/" + gocmd
 				}
 
 				// It is possible to request repeated builds.
@@ -458,12 +509,40 @@ ADD . /
 
 				for buildCount > 0 {
 					buildCount--
+					// Blow out the cache
+					{
+						cmd := exec.Command(gocmd, "clean", "-cache")
+						cmd.Env = defaultEnv
+						if !bench.NotSandboxed {
+							cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+						}
+						if root != "" {
+							cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+						}
+						if verbose > 0 {
+							fmt.Println(asCommandLine(cwd, cmd))
+						} else {
+							fmt.Print("c")
+						}
+						output, err := cmd.CombinedOutput()
+						if err != nil {
+							s := ""
+							switch e := err.(type) {
+							case *exec.ExitError:
+								s = fmt.Sprintf("There was an error running 'go clean -cache', output = %s", output)
+							default:
+								s = fmt.Sprintf("There was an error running 'go clean -cache', output = %s, error = %v", output, e)
+							}
+							fmt.Println(s)
+						}
+					}
+
 					// Prefix with time for build benchmarking:
 					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-vet=off", "-c")
 					cmd.Args = append(cmd.Args, bench.BuildFlags...)
-					if explicitAll > 0 {
-						cmd.Args = append(cmd.Args, "-a")
-					}
+					//if explicitAll > 0 {
+					//	cmd.Args = append(cmd.Args, "-a")
+					//}
 					if config.GcFlags != "" {
 						cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 					}
@@ -472,7 +551,6 @@ ADD . /
 					cmd.Env = defaultEnv
 					if !bench.NotSandboxed {
 						cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-						needSandbox = true
 					}
 					if root != "" {
 						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
@@ -482,7 +560,7 @@ ADD . /
 					if verbose > 0 {
 						fmt.Println(asCommandLine(cwd, cmd))
 					} else {
-						fmt.Print(".")
+						fmt.Print("B")
 					}
 					output, err := cmd.CombinedOutput()
 					if err != nil {
