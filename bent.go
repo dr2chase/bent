@@ -69,22 +69,23 @@ type Todo struct {
 
 var verbose int
 
+var benchFile = "benchmarks-50.toml"         // default list of benchmarks
+var confFile = "configurations.toml"         // default list of configurations
+var testBinDir = "testbin"                   // destination for generated binaries and benchmark outputs
+var srcPath = "src/github.com/dr2chase/bent" // Used to find configuration files.
+var container = ""
+var N = 1
+var list = false
+var initialize = false
+var test = false
+var noSandbox = false
+var requireSandbox = false
+var getOnly = false
+var runContainer = "" // if nonempty, skip builds and use existing named container (or binaries if -U )
+var wikiTable = false // emit the tests in a form usable in a wiki table
+var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
+
 func main() {
-	benchFile := "benchmarks-50.toml"         // default list of benchmarks
-	confFile := "configurations.toml"         // default list of configurations
-	testBinDir := "testbin"                   // destination for generated binaries and benchmark outputs
-	srcPath := "src/github.com/dr2chase/bent" // Used to find configuration files.
-	container := ""
-	N := 1
-	list := false
-	init := false
-	test := false
-	noSandbox := false
-	requireSandbox := false
-	getOnly := false
-	runContainer := "" // if nonempty, skip builds and use existing named container (or binaries if -U )
-	wikiTable := false // emit the tests in a form usable in a wiki table
-	explicitAll := 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
 
 	var benchmarksString, configurationsString string
 
@@ -105,7 +106,7 @@ func main() {
 	flag.StringVar(&runContainer, "r", runContainer, "skip get and build, go directly to run, using specified container (any non-empty string will do for unsandboxed execution)")
 
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
-	flag.BoolVar(&init, "I", init, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
+	flag.BoolVar(&initialize, "I", initialize, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
 	flag.BoolVar(&test, "T", test, "run tests instead of benchmarks")
 
 	flag.BoolVar(&wikiTable, "W", wikiTable, "print benchmark info for a wiki table")
@@ -170,14 +171,14 @@ benchstat.
 		fmt.Printf("Building/running tests will trash pkg and bin, please remove, rename or run in another directory.\n")
 		os.Exit(1)
 	}
-	if derr != nil && !init {
+	if derr != nil && !initialize {
 		// Missing Dockerfile
-		fmt.Printf("Missing 'Dockerfile', please rerun with -I (init) flag if you intend to use this directory.\n")
+		fmt.Printf("Missing 'Dockerfile', please rerun with -I (initialize) flag if you intend to use this directory.\n")
 		os.Exit(1)
 	}
 
 	// Create a Dockerfile
-	if init {
+	if initialize {
 		anyerr := false
 		if serr == nil {
 			fmt.Printf("It looks like you've already initialized this directory, remove ./gopath if you want to reinit.\n")
@@ -259,7 +260,7 @@ ADD . /
 		return
 	}
 
-	// Normalize configuration gorooot names by ensuring they end in '/'
+	// Normalize configuration goroot names by ensuring they end in '/'
 	// Process command-line-specified configurations
 	for i, trial := range todo.Configurations {
 		todo.Configurations[i].Disabled = todo.Configurations[i].Disabled
@@ -384,6 +385,23 @@ ADD . /
 
 	var getAndBuildFailures []string
 
+	err = os.Mkdir(testBinDir, 0775)
+	// Ignore the error -- TODO note the difference between exists already and other errors.
+
+	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
+
+	for i, config := range todo.Configurations {
+		if !config.Disabled { // Don't overwrite if something was disabled.
+			s := testBinDir + "/" + runstamp + "." + config.Name + ".stdout"
+			f, err := os.OpenFile(s, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+			if err != nil {
+				fmt.Printf("There was an error opening %s for output, error %v\n", s, err)
+				os.Exit(2)
+			}
+			todo.Configurations[i].writer = f
+		}
+	}
+
 	if runContainer == "" { // If not reusing binaries/container...
 		if verbose == 0 {
 			fmt.Print("Go getting")
@@ -428,8 +446,19 @@ ADD . /
 		// If any test needs sandboxing, then one docker container will be created
 		// (that contains all the tests).
 
-		err = os.Mkdir(testBinDir, 0775)
-		// Ignore the error -- TODO note the difference between exists already and other errors.
+		for ci, config := range todo.Configurations {
+			if config.Disabled {
+				continue
+			}
+			f, err := os.Create(config.buildBenchName())
+			if err != nil {
+				fmt.Println("Error creating build benchmark file ", config.buildBenchName(), ", err=", err)
+				todo.Configurations[ci].Disabled = true
+			} else {
+				f.Close() // will be appending later
+			}
+		}
+
 		if verbose == 0 {
 			fmt.Print("Compiling")
 		}
@@ -446,16 +475,14 @@ ADD . /
 			}
 
 			buildLibrary := func(withAltOS bool) {
-				cmd := exec.Command("/usr/bin/time", "-p", gocmd, "install")
-				//cmd.Args = append(cmd.Args, bench.BuildFlags...)
-				//if explicitAll > 0 {
-				//	cmd.Args = append(cmd.Args, "-a")
-				//}
+				if withAltOS && runtime.GOOS == "linux" {
+					return // The alternate OS is linux
+				}
+				cmd := exec.Command(gocmd, "install", "-a")
 				if config.GcFlags != "" {
 					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 				}
 				cmd.Args = append(cmd.Args, "std")
-				//cmd.Dir = gopath + "/src/" + bench.Repo
 				cmd.Env = defaultEnv
 				if withAltOS {
 					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
@@ -465,21 +492,9 @@ ADD . /
 				}
 				cmd.Env = append(cmd.Env, config.GcEnv...)
 
-				if verbose > 0 {
-					fmt.Println(asCommandLine(cwd, cmd))
-				} else {
-					fmt.Print("I")
-				}
-				output, err := cmd.CombinedOutput()
-				if err != nil {
-					s := ""
-					switch e := err.(type) {
-					case *exec.ExitError:
-						s = fmt.Sprintf("There was an error running 'go install std', output = %s", output)
-					default:
-						s = fmt.Sprintf("There was an error running 'go install std', output = %s, error = %v", output, e)
-					}
-					fmt.Println(s)
+				s := config.runBinary("", cmd)
+				if s != "" {
+					fmt.Println("Error running go install std, ", s)
 				}
 			}
 
@@ -509,7 +524,7 @@ ADD . /
 
 				for buildCount > 0 {
 					buildCount--
-					// Blow out the cache
+					// Clear the Go build cache
 					{
 						cmd := exec.Command(gocmd, "clean", "-cache")
 						cmd.Env = defaultEnv
@@ -519,30 +534,16 @@ ADD . /
 						if root != "" {
 							cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 						}
-						if verbose > 0 {
-							fmt.Println(asCommandLine(cwd, cmd))
-						} else {
-							fmt.Print("c")
-						}
-						output, err := cmd.CombinedOutput()
-						if err != nil {
-							s := ""
-							switch e := err.(type) {
-							case *exec.ExitError:
-								s = fmt.Sprintf("There was an error running 'go clean -cache', output = %s", output)
-							default:
-								s = fmt.Sprintf("There was an error running 'go clean -cache', output = %s, error = %v", output, e)
-							}
-							fmt.Println(s)
+						s := config.runBinary("", cmd)
+						if s != "" {
+							fmt.Println("Error running go clean -cache, ", s)
 						}
 					}
 
 					// Prefix with time for build benchmarking:
 					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-vet=off", "-c")
 					cmd.Args = append(cmd.Args, bench.BuildFlags...)
-					//if explicitAll > 0 {
-					//	cmd.Args = append(cmd.Args, "-a")
-					//}
+					// Do not need -a because cache was emptied first and std was -a installed with these flags.
 					if config.GcFlags != "" {
 						cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 					}
@@ -586,7 +587,7 @@ ADD . /
 						BenchStat{Name: bench.Name, RealTime: rbt, UserTime: ubt, SysTime: sbt})
 					todo.Configurations[ci].buildStats = config.buildStats
 
-					// Move generated binary to well known place.
+					// Move generated binary to well-known place.
 					// This interacts with a negative "-a" (meaning repeat build but w/o "-a") to at least force a relink
 					from := cmd.Dir + "/" + bench.testBinaryName()
 					to := testBinDir + "/" + bench.Name + "_" + config.Name
@@ -607,19 +608,27 @@ ADD . /
 				}
 			}
 			// Done building this configuration, report and record build stats to testbin
-			buf := new(bytes.Buffer)
 			if verbose > 0 {
 				fmt.Printf("Build stats for configuration %s\n", config.Name)
 			}
 			for _, b := range config.buildStats {
+				buf := new(bytes.Buffer)
 				s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
 					strings.Title(b.Name), b.RealTime, b.UserTime, b.SysTime)
 				if verbose > 0 {
 					fmt.Print(s)
 				}
 				buf.WriteString(s)
+				f, err := os.OpenFile(config.buildBenchName(), os.O_WRONLY|os.O_APPEND, os.ModePerm)
+				if err != nil {
+					fmt.Printf("There was an error opening %s for append, error %v\n", config.buildBenchName(), err)
+					os.Exit(2)
+				}
+				f.Write(buf.Bytes())
+				f.Sync()
+				f.Close()
 			}
-			ioutil.WriteFile(testBinDir+"/"+config.Name+".build", buf.Bytes(), os.ModePerm)
+
 			os.RemoveAll("pkg")
 			os.RemoveAll("bin")
 		}
@@ -659,20 +668,6 @@ ADD . /
 	}
 
 	var failures []string
-
-	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
-
-	for i, config := range todo.Configurations {
-		if !config.Disabled { // Don't overwrite if something was disabled.
-			s := testBinDir + "/" + runstamp + "." + config.Name + ".stdout"
-			f, err := os.OpenFile(s, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-			if err != nil {
-				fmt.Printf("There was an error opening %s for output, error %v\n", s, err)
-				os.Exit(2)
-			}
-			todo.Configurations[i].writer = f
-		}
-	}
 
 	// If there's an error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
@@ -832,6 +827,10 @@ func copyFile(fromDir, file string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Copied %s to current directory\n", fromDir+"/"+file)
+}
+
+func (c *Configuration) buildBenchName() string {
+	return testBinDir + "/" + c.Name + ".build"
 }
 
 // runBinary runs cmd and displays the output.
