@@ -85,6 +85,8 @@ var runContainer = "" // if nonempty, skip builds and use existing named contain
 var wikiTable = false // emit the tests in a form usable in a wiki table
 var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
 
+var defaultEnv []string
+
 func main() {
 
 	var benchmarksString, configurationsString string
@@ -368,7 +370,6 @@ ADD . /
 		return
 	}
 
-	var defaultEnv []string
 	defaultEnv = inheritEnv(defaultEnv, "PATH")
 	defaultEnv = inheritEnv(defaultEnv, "USER")
 	defaultEnv = inheritEnv(defaultEnv, "HOME")
@@ -400,6 +401,24 @@ ADD . /
 			}
 			todo.Configurations[i].writer = f
 		}
+	}
+
+	// It is possible to request repeated builds.
+	// a negative build count results in repeated builds but
+	// does not pass -a to the builds.
+	buildCount := explicitAll
+	if buildCount < 0 {
+		buildCount = -buildCount
+	}
+	if buildCount == 0 {
+		buildCount = 1
+	}
+	innerBuildCount := buildCount
+	outerBuildCount := buildCount
+	if explicitAll < 0 {
+		outerBuildCount = 1
+	} else {
+		innerBuildCount = 1
 	}
 
 	if runContainer == "" { // If not reusing binaries/container...
@@ -462,95 +481,90 @@ ADD . /
 		if verbose == 0 {
 			fmt.Print("Compiling")
 		}
-		for ci, config := range todo.Configurations {
-			if config.Disabled {
-				continue
-			}
 
-			root := config.Root
-
-			gocmd := "go"
-			if root != "" {
-				gocmd = root + "bin/" + gocmd
-			}
-
-			buildLibrary := func(withAltOS bool) {
-				if withAltOS && runtime.GOOS == "linux" {
-					return // The alternate OS is linux
-				}
-				cmd := exec.Command(gocmd, "install", "-a")
-				if config.GcFlags != "" {
-					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
-				}
-				cmd.Args = append(cmd.Args, "std")
-				cmd.Env = defaultEnv
-				if withAltOS {
-					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-				}
-				if root != "" {
-					cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
-				}
-				cmd.Env = append(cmd.Env, config.GcEnv...)
-
-				s := config.runBinary("", cmd)
-				if s != "" {
-					fmt.Println("Error running go install std, ", s)
-				}
-			}
-
-			// Prebuild the library for this configuration
-			if needSandbox {
-				buildLibrary(true)
-			}
-			if needNotSandbox {
-				buildLibrary(false)
-			}
-
+		if outerBuildCount > 1 {
 			for bi, bench := range todo.Benchmarks {
 				if bench.Disabled {
 					continue
 				}
-
-				// It is possible to request repeated builds.
-				// a negative build count results in repeated builds but
-				// does not pass -a to the builds.
-				buildCount := explicitAll
-				if buildCount < 0 {
-					buildCount = -buildCount
-				}
-				if buildCount == 0 {
-					buildCount = 1
-				}
-
-				for buildCount > 0 {
-					buildCount--
-					// Clear the Go build cache
-					{
-						cmd := exec.Command(gocmd, "clean", "-cache")
-						cmd.Env = defaultEnv
-						if !bench.NotSandboxed {
-							cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+				for yyy := 0; yyy < outerBuildCount; yyy++ {
+					for ci, config := range todo.Configurations {
+						if config.Disabled {
+							continue
 						}
-						if root != "" {
-							cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+
+						root := config.Root
+						gocmd := config.goCommand()
+
+						buildLibrary := func(withAltOS bool) {
+							if withAltOS && runtime.GOOS == "linux" {
+								return // The alternate OS is linux
+							}
+							cmd := exec.Command(gocmd, "install", "-a")
+							if config.GcFlags != "" {
+								cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+							}
+							cmd.Args = append(cmd.Args, "std")
+							cmd.Env = defaultEnv
+							if withAltOS {
+								cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+							}
+							if root != "" {
+								cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+							}
+							cmd.Env = append(cmd.Env, config.GcEnv...)
+
+							s := config.runBinary("", cmd)
+							if s != "" {
+								fmt.Println("Error running go install std, ", s)
+							}
 						}
-						s := config.runBinary("", cmd)
+
+						// Prebuild the library for this configuration unless -a=1
+						if explicitAll != 1 {
+							if needSandbox {
+								buildLibrary(true)
+							}
+							if needNotSandbox {
+								buildLibrary(false)
+							}
+						}
+
+						// Clear the Go build cache
+						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
 						if s != "" {
-							fmt.Println("Error running go clean -cache, ", s)
+							getAndBuildFailures = append(getAndBuildFailures, s)
 						}
-					}
 
-					// Prefix with time for build benchmarking:
-					cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-vet=off", "-c")
-					cmd.Args = append(cmd.Args, bench.BuildFlags...)
-					// Do not need -a because cache was emptied first and std was -a installed with these flags.
+						// Report and record build stats to testbin
+
+						os.RemoveAll("pkg")
+						os.RemoveAll("bin")
+					}
+				}
+			}
+		} else {
+
+			for ci, config := range todo.Configurations {
+				if config.Disabled {
+					continue
+				}
+
+				root := config.Root
+
+				gocmd := config.goCommand()
+
+				buildLibrary := func(withAltOS bool) {
+					if withAltOS && runtime.GOOS == "linux" {
+						return // The alternate OS is linux
+					}
+					cmd := exec.Command(gocmd, "install", "-a")
 					if config.GcFlags != "" {
 						cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 					}
-					cmd.Args = append(cmd.Args, ".")
-					cmd.Dir = gopath + "/src/" + bench.Repo
+					cmd.Args = append(cmd.Args, "std")
 					cmd.Env = defaultEnv
-					if !bench.NotSandboxed {
+					if withAltOS {
 						cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
 					}
 					if root != "" {
@@ -558,79 +572,41 @@ ADD . /
 					}
 					cmd.Env = append(cmd.Env, config.GcEnv...)
 
-					if verbose > 0 {
-						fmt.Println(asCommandLine(cwd, cmd))
-					} else {
-						fmt.Print("B")
+					s := config.runBinary("", cmd)
+					if s != "" {
+						fmt.Println("Error running go install std, ", s)
 					}
-					output, err := cmd.CombinedOutput()
-					if err != nil {
-						s := ""
-						switch e := err.(type) {
-						case *exec.ExitError:
-							s = fmt.Sprintf("There was an error running 'go test', output = %s", output)
-						default:
-							s = fmt.Sprintf("There was an error running 'go test', output = %s, error = %v", output, e)
-						}
-						fmt.Println(s + "DISABLING benchmark " + bench.Name)
-						getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
-						bench.Disabled = true // if it won't compile, it won't run, either.
-						todo.Benchmarks[bi].Disabled = true
-						break
-					}
-					soutput := string(output)
-					// Capture times from the end of the output.
-					rbt := extractTime(soutput, "real")
-					ubt := extractTime(soutput, "user")
-					sbt := extractTime(soutput, "sys")
-					config.buildStats = append(config.buildStats,
-						BenchStat{Name: bench.Name, RealTime: rbt, UserTime: ubt, SysTime: sbt})
-					todo.Configurations[ci].buildStats = config.buildStats
+				}
 
-					// Move generated binary to well-known place.
-					// This interacts with a negative "-a" (meaning repeat build but w/o "-a") to at least force a relink
-					from := cmd.Dir + "/" + bench.testBinaryName()
-					to := testBinDir + "/" + bench.Name + "_" + config.Name
-					err = os.Rename(from, to)
-					if err != nil {
-						fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
-						os.Exit(1)
+				// Prebuild the library for this configuration unless -a=1
+				if explicitAll != 1 {
+					if needSandbox {
+						buildLibrary(true)
 					}
-					// Trim /usr/bin/time info from soutput, it's ugly
-					if verbose > 0 {
-						fmt.Println("mv " + from + " " + to + "")
-						i := strings.LastIndex(soutput, "real")
-						if i >= 0 {
-							soutput = soutput[:i]
-						}
-						fmt.Print(soutput)
+					if needNotSandbox {
+						buildLibrary(false)
 					}
 				}
-			}
-			// Done building this configuration, report and record build stats to testbin
-			if verbose > 0 {
-				fmt.Printf("Build stats for configuration %s\n", config.Name)
-			}
-			for _, b := range config.buildStats {
-				buf := new(bytes.Buffer)
-				s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
-					strings.Title(b.Name), b.RealTime, b.UserTime, b.SysTime)
-				if verbose > 0 {
-					fmt.Print(s)
-				}
-				buf.WriteString(s)
-				f, err := os.OpenFile(config.buildBenchName(), os.O_WRONLY|os.O_APPEND, os.ModePerm)
-				if err != nil {
-					fmt.Printf("There was an error opening %s for append, error %v\n", config.buildBenchName(), err)
-					os.Exit(2)
-				}
-				f.Write(buf.Bytes())
-				f.Sync()
-				f.Close()
-			}
 
-			os.RemoveAll("pkg")
-			os.RemoveAll("bin")
+				for bi, bench := range todo.Benchmarks {
+					if bench.Disabled {
+						continue
+					}
+
+					for yyy := 0; yyy < innerBuildCount; yyy++ {
+						// Clear the Go build cache
+						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
+						if s != "" {
+							getAndBuildFailures = append(getAndBuildFailures, s)
+						}
+					}
+				}
+
+				// Report and record build stats to testbin
+
+				os.RemoveAll("pkg")
+				os.RemoveAll("bin")
+			}
 		}
 
 		if verbose == 0 {
@@ -700,16 +676,17 @@ ADD . /
 			if config.Disabled {
 				continue
 			}
-			root := config.Root
-			configWrapper := ""
-			if len(config.RunWrapper) > 0 {
-				// Prepend slash, for now it runs from root of container or cwd + configWrapper if not sandboxed.
-				configWrapper = "/" + config.RunWrapper[0]
-			}
 
 			for _, b := range todo.Benchmarks {
 				if b.Disabled {
 					continue
+				}
+
+				root := config.Root
+				configWrapper := ""
+				if len(config.RunWrapper) > 0 {
+					// Prepend slash, for now it runs from root of container or cwd + configWrapper if not sandboxed.
+					configWrapper = "/" + config.RunWrapper[0]
 				}
 
 				benchWrapper := ""
@@ -782,6 +759,124 @@ ADD . /
 	}
 }
 
+func (c *Configuration) buildBenchName() string {
+	return testBinDir + "/" + c.Name + ".build"
+}
+
+func (c *Configuration) goCommand() string {
+	gocmd := "go"
+	if c.Root != "" {
+		gocmd = c.Root + "bin/" + gocmd
+	}
+	return gocmd
+}
+
+func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
+	root := config.Root
+	gocmd := config.goCommand()
+	gopath := cwd + "/gopath"
+
+	{
+		cmd := exec.Command(gocmd, "clean", "-cache")
+		cmd.Env = defaultEnv
+		if !bench.NotSandboxed {
+			cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+		}
+		if root != "" {
+			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+		}
+		s := config.runBinary("", cmd)
+		if s != "" {
+			fmt.Println("Error running go clean -cache, ", s)
+		}
+	}
+
+	// Prefix with time for build benchmarking:
+	cmd := exec.Command("/usr/bin/time", "-p", gocmd, "test", "-vet=off", "-c")
+	cmd.Args = append(cmd.Args, bench.BuildFlags...)
+	// Do not normally need -a because cache was emptied first and std was -a installed with these flags.
+	// But for -a=1, do it anyway
+	if explicitAll == 1 {
+		cmd.Args = append(cmd.Args, "-a")
+	}
+	if config.GcFlags != "" {
+		cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+	}
+	cmd.Args = append(cmd.Args, ".")
+	cmd.Dir = gopath + "/src/" + bench.Repo
+	cmd.Env = defaultEnv
+	if !bench.NotSandboxed {
+		cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+	}
+	if root != "" {
+		cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
+	}
+	cmd.Env = append(cmd.Env, config.GcEnv...)
+
+	if verbose > 0 {
+		fmt.Println(asCommandLine(cwd, cmd))
+	} else {
+		fmt.Print("B")
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		s := ""
+		switch e := err.(type) {
+		case *exec.ExitError:
+			s = fmt.Sprintf("There was an error running 'go test', output = %s", output)
+		default:
+			s = fmt.Sprintf("There was an error running 'go test', output = %s, error = %v", output, e)
+		}
+		fmt.Println(s + "DISABLING benchmark " + bench.Name)
+		bench.Disabled = true // if it won't compile, it won't run, either.
+		return s + "(" + bench.Name + ")\n"
+	}
+	soutput := string(output)
+	// Capture times from the end of the output.
+	rbt := extractTime(soutput, "real")
+	ubt := extractTime(soutput, "user")
+	sbt := extractTime(soutput, "sys")
+	config.buildStats = append(config.buildStats,
+		BenchStat{Name: bench.Name, RealTime: rbt, UserTime: ubt, SysTime: sbt})
+
+	// Report and record build stats to testbin
+
+	buf := new(bytes.Buffer)
+	s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
+		strings.Title(bench.Name), rbt, ubt, sbt)
+	if verbose > 0 {
+		fmt.Print(s)
+	}
+	buf.WriteString(s)
+	f, err := os.OpenFile(config.buildBenchName(), os.O_WRONLY|os.O_APPEND, os.ModePerm)
+	if err != nil {
+		fmt.Printf("There was an error opening %s for append, error %v\n", config.buildBenchName(), err)
+		os.Exit(2)
+	}
+	f.Write(buf.Bytes())
+	f.Sync()
+	f.Close()
+
+	// Move generated binary to well-known place.
+	from := cmd.Dir + "/" + bench.testBinaryName()
+	to := testBinDir + "/" + bench.Name + "_" + config.Name
+	err = os.Rename(from, to)
+	if err != nil {
+		fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
+		os.Exit(1)
+	}
+	// Trim /usr/bin/time info from soutput, it's ugly
+	if verbose > 0 {
+		fmt.Println("mv " + from + " " + to + "")
+		i := strings.LastIndex(soutput, "real")
+		if i >= 0 {
+			soutput = soutput[:i]
+		}
+		fmt.Print(soutput)
+	}
+	return ""
+}
+
 func escape(s string) string {
 	s = strings.Replace(s, "\\", "\\\\", -1)
 	s = strings.Replace(s, "'", "\\'", -1)
@@ -827,10 +922,6 @@ func copyFile(fromDir, file string) {
 		os.Exit(1)
 	}
 	fmt.Printf("Copied %s to current directory\n", fromDir+"/"+file)
-}
-
-func (c *Configuration) buildBenchName() string {
-	return testBinDir + "/" + c.Name + ".build"
 }
 
 // runBinary runs cmd and displays the output.
