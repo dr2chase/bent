@@ -20,6 +20,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/BurntSushi/toml"
+	"github.com/otiai10/copy"
 	"io"
 	"io/ioutil"
 	"os"
@@ -47,6 +48,7 @@ type Configuration struct {
 	Disabled   bool     // True if this configuration is temporarily disabled
 	buildStats []BenchStat
 	writer     *os.File
+	rootCopy   string   // The contents of GOROOT are copied here to allow benchmarking of just the test compilation.
 }
 
 type Benchmark struct {
@@ -178,6 +180,10 @@ benchstat.
 		fmt.Printf("Missing 'Dockerfile', please rerun with -I (initialize) flag if you intend to use this directory.\n")
 		os.Exit(1)
 	}
+
+	// Create directory that will contain GOROOT for each configuration.
+	goroots := cwd + "/goroots"
+	err = os.Mkdir(goroots, 0775)
 
 	// Create a Dockerfile
 	if initialize {
@@ -390,7 +396,6 @@ ADD . /
 	// Ignore the error -- TODO note the difference between exists already and other errors.
 
 	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
-
 	for i, config := range todo.Configurations {
 		if !config.Disabled { // Don't overwrite if something was disabled.
 			s := testBinDir + "/" + runstamp + "." + config.Name + ".stdout"
@@ -403,9 +408,13 @@ ADD . /
 		}
 	}
 
-	// It is possible to request repeated builds.
-	// a negative build count results in repeated builds but
-	// does not pass -a to the builds.
+	// It is possible to request repeated builds for compiler/linker benchmarking.
+	// Normal (non-negative build count) varies configuration most frequently,
+	// then benchmark, then repeats the process N times (innerBuildCount = 1).
+	// If build count is negative, the configuration varies least frequently,
+	// and each benchmark is built buildCount (innerBuildCount) times before
+	// moving on to the next. (This tends to focus intermittent benchmarking
+	// noise on single confioguration-benchmark combos.  This is the "old way".
 	buildCount := explicitAll
 	if buildCount < 0 {
 		buildCount = -buildCount
@@ -479,10 +488,85 @@ ADD . /
 		}
 
 		if verbose == 0 {
-			fmt.Print("Compiling")
+			fmt.Print("Building goroots")
+		}
+
+		// First for each configuration, get the compiler and library and install it in its own GOROOT.
+		for ci, config := range todo.Configurations {
+			if config.Disabled {
+				continue
+			}
+
+			root := config.Root
+
+			rootCopy := goroots + "/"+ config.Name + "/"
+			if verbose > 0 {
+				fmt.Printf("rm -rf %s\n", rootCopy)
+			}
+			os.RemoveAll(rootCopy)
+			config.rootCopy = rootCopy
+			todo.Configurations[ci] = config
+
+			docopy := func(from, to string) {
+				if verbose > 0 {
+					fmt.Printf("cp -rp %s %s\n", from, to)
+				}
+				copy.Copy(from, to)
+			}
+
+			docopy(root +"bin", rootCopy + "bin")
+			docopy(root +"src", rootCopy + "src")
+			docopy(root +"pkg", rootCopy + "pkg")
+			docopy(root +"vendor", rootCopy + "vendor")
+
+			gocmd := config.goCommandCopy()
+
+			buildLibrary := func(withAltOS bool) {
+				if withAltOS && runtime.GOOS == "linux" {
+					return // The alternate OS is linux
+				}
+				cmd := exec.Command(gocmd, "install", "-a")
+				if config.GcFlags != "" {
+					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
+				}
+				cmd.Args = append(cmd.Args, "std")
+				cmd.Env = defaultEnv
+				if withAltOS {
+					cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
+				}
+				if rootCopy != "" {
+					cmd.Env = replaceEnv(cmd.Env, "GOROOT", rootCopy)
+				}
+				cmd.Env = append(cmd.Env, config.GcEnv...)
+
+				s := config.runBinary("", cmd, true)
+				if s != "" {
+					fmt.Println("Error running go install std, ", s)
+					config.Disabled = true
+				}
+			}
+
+			// Prebuild the library for this configuration unless -a=1
+			if explicitAll != 1 {
+				if needSandbox {
+					buildLibrary(true)
+				}
+				if needNotSandbox {
+					buildLibrary(false)
+				}
+			}
+			todo.Configurations[ci] = config
+			if config.Disabled {
+				continue
+			}
+		}
+
+		if verbose == 0 {
+			fmt.Print("\nCompiling")
 		}
 
 		if outerBuildCount > 1 {
+
 			for bi, bench := range todo.Benchmarks {
 				if bench.Disabled {
 					continue
@@ -492,107 +576,23 @@ ADD . /
 						if config.Disabled {
 							continue
 						}
-
-						root := config.Root
-						gocmd := config.goCommand()
-
-						buildLibrary := func(withAltOS bool) {
-							if withAltOS && runtime.GOOS == "linux" {
-								return // The alternate OS is linux
-							}
-							cmd := exec.Command(gocmd, "install", "-a")
-							if config.GcFlags != "" {
-								cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
-							}
-							cmd.Args = append(cmd.Args, "std")
-							cmd.Env = defaultEnv
-							if withAltOS {
-								cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-							}
-							if root != "" {
-								cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
-							}
-							cmd.Env = append(cmd.Env, config.GcEnv...)
-
-							s := config.runBinary("", cmd)
-							if s != "" {
-								fmt.Println("Error running go install std, ", s)
-							}
-						}
-
-						// Prebuild the library for this configuration unless -a=1
-						if explicitAll != 1 {
-							if needSandbox {
-								buildLibrary(true)
-							}
-							if needNotSandbox {
-								buildLibrary(false)
-							}
-						}
-
-						// Clear the Go build cache
 						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
 						if s != "" {
 							getAndBuildFailures = append(getAndBuildFailures, s)
 						}
-
-						// Report and record build stats to testbin
-
-						os.RemoveAll("pkg")
-						os.RemoveAll("bin")
 					}
 				}
 			}
-		} else {
+		} else { // this is vulnerable to noise.
 
 			for ci, config := range todo.Configurations {
 				if config.Disabled {
 					continue
 				}
-
-				root := config.Root
-
-				gocmd := config.goCommand()
-
-				buildLibrary := func(withAltOS bool) {
-					if withAltOS && runtime.GOOS == "linux" {
-						return // The alternate OS is linux
-					}
-					cmd := exec.Command(gocmd, "install", "-a")
-					if config.GcFlags != "" {
-						cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
-					}
-					cmd.Args = append(cmd.Args, "std")
-					cmd.Env = defaultEnv
-					if withAltOS {
-						cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-					}
-					if root != "" {
-						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
-					}
-					cmd.Env = append(cmd.Env, config.GcEnv...)
-
-					s := config.runBinary("", cmd)
-					if s != "" {
-						fmt.Println("Error running go install std, ", s)
-					}
-				}
-
-				// Prebuild the library for this configuration unless -a=1
-				if explicitAll != 1 {
-					if needSandbox {
-						buildLibrary(true)
-					}
-					if needNotSandbox {
-						buildLibrary(false)
-					}
-				}
-
 				for bi, bench := range todo.Benchmarks {
 					if bench.Disabled {
 						continue
 					}
-
 					for yyy := 0; yyy < innerBuildCount; yyy++ {
 						// Clear the Go build cache
 						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
@@ -601,11 +601,6 @@ ADD . /
 						}
 					}
 				}
-
-				// Report and record build stats to testbin
-
-				os.RemoveAll("pkg")
-				os.RemoveAll("bin")
 			}
 		}
 
@@ -730,7 +725,7 @@ ADD . /
 					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					s = todo.Configurations[j].runBinary(cwd, cmd)
+					s = todo.Configurations[j].runBinary(cwd, cmd, false)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
 					testdir := "/gopath/src/" + b.Repo
@@ -748,7 +743,7 @@ ADD . /
 					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					s = todo.Configurations[j].runBinary(cwd, cmd)
+					s = todo.Configurations[j].runBinary(cwd, cmd, false)
 				}
 				if s != "" {
 					fmt.Println(s)
@@ -771,9 +766,17 @@ func (c *Configuration) goCommand() string {
 	return gocmd
 }
 
+func (c *Configuration) goCommandCopy() string {
+	gocmd := "go"
+	if c.rootCopy != "" {
+		gocmd = c.rootCopy + "bin/" + gocmd
+	}
+	return gocmd
+}
+
 func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
-	root := config.Root
-	gocmd := config.goCommand()
+	root := config.rootCopy
+	gocmd := config.goCommandCopy()
 	gopath := cwd + "/gopath"
 
 	{
@@ -785,7 +788,8 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 		if root != "" {
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
-		s := config.runBinary("", cmd)
+		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
+		s := config.runBinary("", cmd, true)
 		if s != "" {
 			fmt.Println("Error running go clean -cache, ", s)
 		}
@@ -816,7 +820,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	if verbose > 0 {
 		fmt.Println(asCommandLine(cwd, cmd))
 	} else {
-		fmt.Print("B")
+		fmt.Print(".")
 	}
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -874,6 +878,11 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 		}
 		fmt.Print(soutput)
 	}
+	if verbose > 0 {
+		fmt.Printf("rm -rf %s %s\n", gopath + "/pkg", gopath + "/bin")
+	}
+	os.RemoveAll(gopath + "/pkg")
+	os.RemoveAll(gopath + "/bin")
 	return ""
 }
 
@@ -926,10 +935,14 @@ func copyFile(fromDir, file string) {
 
 // runBinary runs cmd and displays the output.
 // If the command returns an error, returns an error string.
-func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd) string {
+func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot bool) string {
 	line := asCommandLine(cwd, cmd)
 	if verbose > 0 {
 		fmt.Println(line)
+	} else {
+		if printWorkingDot {
+			fmt.Print(".")
+		}
 	}
 
 	stdout, err := cmd.StdoutPipe()
