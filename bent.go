@@ -48,7 +48,7 @@ type Configuration struct {
 	Disabled   bool     // True if this configuration is temporarily disabled
 	buildStats []BenchStat
 	writer     *os.File
-	rootCopy   string   // The contents of GOROOT are copied here to allow benchmarking of just the test compilation.
+	rootCopy   string // The contents of GOROOT are copied here to allow benchmarking of just the test compilation.
 }
 
 type Benchmark struct {
@@ -422,13 +422,6 @@ ADD . /
 	if buildCount == 0 {
 		buildCount = 1
 	}
-	innerBuildCount := buildCount
-	outerBuildCount := buildCount
-	if explicitAll < 0 {
-		outerBuildCount = 1
-	} else {
-		innerBuildCount = 1
-	}
 
 	if runContainer == "" { // If not reusing binaries/container...
 		if verbose == 0 {
@@ -499,7 +492,7 @@ ADD . /
 
 			root := config.Root
 
-			rootCopy := goroots + "/"+ config.Name + "/"
+			rootCopy := goroots + "/" + config.Name + "/"
 			if verbose > 0 {
 				fmt.Printf("rm -rf %s\n", rootCopy)
 			}
@@ -514,10 +507,10 @@ ADD . /
 				copy.Copy(from, to)
 			}
 
-			docopy(root +"bin", rootCopy + "bin")
-			docopy(root +"src", rootCopy + "src")
-			docopy(root +"pkg", rootCopy + "pkg")
-			docopy(root +"vendor", rootCopy + "vendor")
+			docopy(root+"bin", rootCopy+"bin")
+			docopy(root+"src", rootCopy+"src")
+			docopy(root+"pkg", rootCopy+"pkg")
+			// docopy(root +"vendor", rootCopy + "vendor")
 
 			gocmd := config.goCommandCopy()
 
@@ -565,40 +558,18 @@ ADD . /
 			fmt.Print("\nCompiling")
 		}
 
-		if outerBuildCount > 1 {
-
+		for yyy := 0; yyy < buildCount; yyy++ {
 			for bi, bench := range todo.Benchmarks {
 				if bench.Disabled {
 					continue
 				}
-				for yyy := 0; yyy < outerBuildCount; yyy++ {
-					for ci, config := range todo.Configurations {
-						if config.Disabled {
-							continue
-						}
-						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
-						if s != "" {
-							getAndBuildFailures = append(getAndBuildFailures, s)
-						}
-					}
-				}
-			}
-		} else { // this is vulnerable to noise.
-
-			for ci, config := range todo.Configurations {
-				if config.Disabled {
-					continue
-				}
-				for bi, bench := range todo.Benchmarks {
-					if bench.Disabled {
+				for ci, config := range todo.Configurations {
+					if config.Disabled {
 						continue
 					}
-					for yyy := 0; yyy < innerBuildCount; yyy++ {
-						// Clear the Go build cache
-						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
-						if s != "" {
-							getAndBuildFailures = append(getAndBuildFailures, s)
-						}
+					s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
+					if s != "" {
+						getAndBuildFailures = append(getAndBuildFailures, s)
 					}
 				}
 			}
@@ -779,7 +750,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	gocmd := config.goCommandCopy()
 	gopath := cwd + "/gopath"
 
-	{
+	if explicitAll != 1 { // clear cache unless "-a[=1]" which requests -a on compilation.
 		cmd := exec.Command(gocmd, "clean", "-cache")
 		cmd.Env = defaultEnv
 		if !bench.NotSandboxed {
@@ -879,7 +850,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 		fmt.Print(soutput)
 	}
 	if verbose > 0 {
-		fmt.Printf("rm -rf %s %s\n", gopath + "/pkg", gopath + "/bin")
+		fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
 	}
 	os.RemoveAll(gopath + "/pkg")
 	os.RemoveAll(gopath + "/bin")
