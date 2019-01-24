@@ -23,6 +23,7 @@ import (
 	"github.com/otiai10/copy"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"os/exec"
 	"runtime"
@@ -86,8 +87,16 @@ var getOnly = false
 var runContainer = "" // if nonempty, skip builds and use existing named container (or binaries if -U )
 var wikiTable = false // emit the tests in a form usable in a wiki table
 var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
+var shuffle = 2       // Dimensionality of (build) shuffling; 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.
 
 var defaultEnv []string
+
+type pair struct {
+	b, c int
+}
+type triple struct {
+	b, c, k int
+}
 
 func main() {
 
@@ -96,6 +105,7 @@ func main() {
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
 
 	flag.Var((*count)(&explicitAll), "a", "add '-a' flag to 'go test -c' to demand full recompile. Repeat or assign a value for repeat builds for benchmarking")
+	flag.IntVar(&shuffle, "s", shuffle, "dimensionality of (build) shuffling (0-3), 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.")
 
 	flag.StringVar(&benchmarksString, "b", "", "comma-separated list of test/benchmark names (default is all)")
 	flag.StringVar(&benchFile, "B", benchFile, "name of file describing benchmarks")
@@ -126,13 +136,16 @@ func main() {
 and runs them according to the flags and environment 
 variables supplied in %s. Specifying "-a" will pass "-a" to
 test compilations, but normally this should not be needed
-and only slows down builds. (Don't forget to specify "all=..."
-for GCFLAGS if you want those applied to the entire build.)
+and only slows down builds; -a with a number that is not 1
+can be used for benchmarking builds of the tests themselves.
+(Don't forget to specify "all=..." for GCFLAGS if you want
+those applied to the entire build.)
 
 Both of these files can be changed with the -B and -C flags; the full
 suite of benchmarks in benchmarks-all.toml is somewhat time-consuming.
 
-Running with the -l flag will list all the available tests and benchmarks.
+Running with the -l flag will list all the available tests and benchmarks
+for the given benchmark and configuration files.
 
 By default the compiled tests are run in a docker container to reduce
 the chances for accidents and mischief. -U requests running tests
@@ -145,6 +158,7 @@ By default benchmarks are run, not tests.  -T runs tests instead
 This command expects to be run in a directory that does not contain
 subdirectories "gopath/pkg" and "gopath/bin", because those subdirectories 
 may be created (and deleted) in the process of compiling the benchmarks.
+The same is true of subdirectory "goroots".
 It will also extensively modify subdirectory "gopath/src".
 
 All the test binaries and test output will appear in the subdirectory
@@ -181,11 +195,16 @@ benchstat.
 		os.Exit(1)
 	}
 
+	if shuffle < 0 || shuffle > 3 {
+		fmt.Printf("Shuffle value (-s) ought to be between 0 and 3, inclusive, instead is %d\n", shuffle)
+		os.Exit(1)
+	}
+
 	// Create directory that will contain GOROOT for each configuration.
 	goroots := cwd + "/goroots"
 	err = os.Mkdir(goroots, 0775)
 
-	// Create a Dockerfile
+	// Initialize the directory, copying in default benchmarks and sample configurations, and creating a Dockerfile
 	if initialize {
 		anyerr := false
 		if serr == nil {
@@ -558,19 +577,94 @@ ADD . /
 			fmt.Print("\nCompiling")
 		}
 
-		for yyy := 0; yyy < buildCount; yyy++ {
-			for bi, bench := range todo.Benchmarks {
-				if bench.Disabled {
-					continue
-				}
-				for ci, config := range todo.Configurations {
-					if config.Disabled {
+		switch shuffle {
+		case 0:
+			for yyy := 0; yyy < buildCount; yyy++ {
+				for bi, bench := range todo.Benchmarks {
+					if bench.Disabled {
 						continue
 					}
-					s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
-					if s != "" {
-						getAndBuildFailures = append(getAndBuildFailures, s)
+					for ci, config := range todo.Configurations {
+						if config.Disabled {
+							continue
+						}
+						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
+						if s != "" {
+							getAndBuildFailures = append(getAndBuildFailures, s)
+						}
 					}
+				}
+			}
+		case 1:
+			permute := make([]int, len(todo.Configurations))
+			for ci, _ := range todo.Configurations {
+				permute[ci] = ci
+			}
+
+			for yyy := 0; yyy < buildCount; yyy++ {
+				for bi, bench := range todo.Benchmarks {
+					if bench.Disabled {
+						continue
+					}
+
+					rand.Shuffle(len(permute), func(i, j int) { permute[i], permute[j] = permute[j], permute[i] })
+
+					for ci := range todo.Configurations {
+						config := &todo.Configurations[permute[ci]]
+						if config.Disabled {
+							continue
+						}
+						s := compileOne(config, &todo.Benchmarks[bi], cwd)
+						if s != "" {
+							getAndBuildFailures = append(getAndBuildFailures, s)
+						}
+					}
+				}
+			}
+		case 2:
+			permute := make([]pair, len(todo.Configurations)*len(todo.Benchmarks))
+			i := 0
+			for bi := range todo.Benchmarks {
+				for ci := range todo.Configurations {
+					permute[i] = pair{b: bi, c: ci}
+					i++
+				}
+			}
+
+			for _, p := range permute {
+				bench := &todo.Benchmarks[p.b]
+				config := &todo.Configurations[p.c]
+				if bench.Disabled || config.Disabled {
+					continue
+				}
+				s := compileOne(config, bench, cwd)
+				if s != "" {
+					getAndBuildFailures = append(getAndBuildFailures, s)
+				}
+			}
+
+		case 3:
+			permute := make([]triple, buildCount*len(todo.Configurations)*len(todo.Benchmarks))
+			i := 0
+			for k := 0; k < buildCount; k++ {
+				for bi := range todo.Benchmarks {
+					for ci := range todo.Configurations {
+						permute[i] = triple{b: bi, c: ci, k:k}
+						i++
+					}
+				}
+			}
+			rand.Shuffle(len(permute), func(i, j int) { permute[i], permute[j] = permute[j], permute[i] })
+
+			for _, p := range permute {
+				bench := &todo.Benchmarks[p.b]
+				config := &todo.Configurations[p.c]
+				if bench.Disabled || config.Disabled {
+					continue
+				}
+				s := compileOne(config, bench, cwd)
+				if s != "" {
+					getAndBuildFailures = append(getAndBuildFailures, s)
 				}
 			}
 		}
