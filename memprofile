@@ -1,0 +1,11 @@
+#!/bin/bash
+# Run args as command, but wrapped in foo.
+# echo Foo foo foo foo foo foo foo ${BENT_BINARY}
+# echo Foo args are "$@"
+# echo Foo environment is
+# printenv
+mpf="${BENT_BINARY}_${BENT_I}.mprof" 
+"$@" -test.memprofile="$mpf"
+echo memprofile in `pwd`/"$mpf"
+go tool pprof --alloc_space --text --cum --nodecount=20 "$mpf"
+# echo  ${BENT_BINARY} oof oof oof oof oof oof ooF
