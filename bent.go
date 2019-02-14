@@ -221,6 +221,8 @@ benchstat.
 		}
 		copyFile(gopathInit+"/"+srcPath, "foo")
 		os.Chmod("foo", 0755)
+		copyFile(gopathInit+"/"+srcPath, "memprofile")
+		os.Chmod("memprofile", 0755)
 		copyFile(gopathInit+"/"+srcPath, "tmpclr")
 		os.Chmod("tmpclr", 0755)
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
@@ -631,15 +633,17 @@ ADD . /
 				}
 			}
 
-			for _, p := range permute {
-				bench := &todo.Benchmarks[p.b]
-				config := &todo.Configurations[p.c]
-				if bench.Disabled || config.Disabled {
-					continue
-				}
-				s := compileOne(config, bench, cwd)
-				if s != "" {
-					getAndBuildFailures = append(getAndBuildFailures, s)
+			for yyy := 0; yyy < buildCount; yyy++ {
+				for _, p := range permute {
+					bench := &todo.Benchmarks[p.b]
+					config := &todo.Configurations[p.c]
+					if bench.Disabled || config.Disabled {
+						continue
+					}
+					s := compileOne(config, bench, cwd)
+					if s != "" {
+						getAndBuildFailures = append(getAndBuildFailures, s)
+					}
 				}
 			}
 
@@ -649,7 +653,7 @@ ADD . /
 			for k := 0; k < buildCount; k++ {
 				for bi := range todo.Benchmarks {
 					for ci := range todo.Configurations {
-						permute[i] = triple{b: bi, c: ci, k:k}
+						permute[i] = triple{b: bi, c: ci, k: k}
 						i++
 					}
 				}
@@ -788,6 +792,7 @@ ADD . /
 					}
 					cmd.Env = append(cmd.Env, config.RunEnv...)
 					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
+					cmd.Env = append(cmd.Env, "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					s = todo.Configurations[j].runBinary(cwd, cmd, false)
@@ -803,6 +808,7 @@ ADD . /
 						cmd.Args = append(cmd.Args, "-e", e)
 					}
 					cmd.Args = append(cmd.Args, "-e", "BENT_BINARY="+testBinaryName)
+					cmd.Args = append(cmd.Args, "-e", "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, container)
 					cmd.Args = append(cmd.Args, wrappersAndBin...)
 					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)

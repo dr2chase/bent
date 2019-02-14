@@ -2,6 +2,54 @@
 # The noisy ones are listed at the bottom
 
 [[Benchmarks]]
+  Name = "dustin_broadcast"
+  Repo = "github.com/dustin/go-broadcast"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "dustin_humanize"
+  Repo = "github.com/dustin/go-humanize"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "rcrowley_metrics"
+  Repo = "github.com/rcrowley/go-metrics"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "shopify_sarama"
+  Repo = "github.com/Shopify/sarama"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "aws_restjson"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/restjson"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "aws_restxml"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/restxml"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "aws_jsonrpc"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "aws_jsonutil"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
   Name = "kanzi"
   Repo = "github.com/flanglet/kanzi-go/benchmark"
   Tests = "Test"
@@ -40,6 +88,7 @@
   Repo = "github.com/ethereum/go-ethereum/crypto/sha3"
   Tests = "Test"
   Benchmarks = "Benchmark"
+  Disabled = "true" # Not building as of 2019-01
 
 [[Benchmarks]]
   Name = "ethereum_ecies"
@@ -143,7 +192,7 @@
   Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  # Disabled = true # Go get failed as of 2018-03-05
+  Disabled = true # Go get failed as of 2018-03-05, again at 2019-01
 
 [[Benchmarks]]
   Name = "uuid"

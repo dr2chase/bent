@@ -35,6 +35,7 @@
   Repo = "github.com/ethereum/go-ethereum/crypto/sha3"
   Tests = "Test"
   Benchmarks = "BenchmarkSha3_224_MTU"
+  Disabled = true # Fails to fetch as of 2019-01
 
 [[Benchmarks]]
   Name = "ethereum_ecies"
@@ -125,7 +126,7 @@
   Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
-  # Disabled = true
+  Disabled = true # Fails to fetch as of 2019-01
 
 [[Benchmarks]]
   Name = "uuid"
