@@ -580,7 +580,7 @@ ADD . /
 		}
 
 		switch shuffle {
-		case 0:
+		case 0: // N times, for each benchmark, for each configuration, build.
 			for yyy := 0; yyy < buildCount; yyy++ {
 				for bi, bench := range todo.Benchmarks {
 					if bench.Disabled {
@@ -597,7 +597,7 @@ ADD . /
 					}
 				}
 			}
-		case 1:
+		case 1: // N times, for each benchmark, shuffle configurations and build with
 			permute := make([]int, len(todo.Configurations))
 			for ci, _ := range todo.Configurations {
 				permute[ci] = ci
@@ -623,7 +623,7 @@ ADD . /
 					}
 				}
 			}
-		case 2:
+		case 2: // N times, shuffle combination of benchmarks and configuration, build them all
 			permute := make([]pair, len(todo.Configurations)*len(todo.Benchmarks))
 			i := 0
 			for bi := range todo.Benchmarks {
@@ -634,6 +634,7 @@ ADD . /
 			}
 
 			for yyy := 0; yyy < buildCount; yyy++ {
+				rand.Shuffle(len(permute), func(i, j int) { permute[i], permute[j] = permute[j], permute[i] })
 				for _, p := range permute {
 					bench := &todo.Benchmarks[p.b]
 					config := &todo.Configurations[p.c]
@@ -647,7 +648,7 @@ ADD . /
 				}
 			}
 
-		case 3:
+		case 3: // Shuffle all the N copies of all the benchmark and confioguration pairs, build them all.
 			permute := make([]triple, buildCount*len(todo.Configurations)*len(todo.Benchmarks))
 			i := 0
 			for k := 0; k < buildCount; k++ {
