@@ -26,6 +26,7 @@ import (
 	"math/rand"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -407,6 +408,7 @@ ADD . /
 		}
 	}
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", gopath)
+	defaultEnv = ifMissingAddEnv(defaultEnv, "GO111MODULE", "auto")
 
 	var needSandbox bool    // true if any benchmark needs a sandbox
 	var needNotSandbox bool // true if any benchmark needs to be not sandboxed
@@ -458,7 +460,6 @@ ADD . /
 			cmd.Env = defaultEnv
 			if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
 				cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
-
 			}
 			if verbose > 0 {
 				fmt.Println(asCommandLine(cwd, cmd))
@@ -953,6 +954,16 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	if verbose > 0 {
 		fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
 	}
+
+	// Necessary to make directories writeable with new module stuff.
+	filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
+		if path != "" && info != nil {
+			if mode := info.Mode(); 0 == mode&os.ModeSymlink {
+				os.Chmod(path, (0700|mode)&os.ModePerm)
+			}
+		}
+		return nil
+	})
 	os.RemoveAll(gopath + "/pkg")
 	os.RemoveAll(gopath + "/bin")
 	return ""
@@ -1116,7 +1127,7 @@ func extractTime(output, label string) int64 {
 	return int64(x * 1000 * 1000 * 1000)
 }
 
-// inheritEnv extracts ev from the os environment and adds
+// inheritEnv extracts ev from the os environment and
 // returns env extended with that new environment variable.
 // Does not check if ev already exists in env.
 func inheritEnv(env []string, ev string) []string {
@@ -1141,6 +1152,19 @@ func replaceEnv(env []string, ev string, evv string) []string {
 	if !found {
 		env = append(env, evplus+evv)
 	}
+	return env
+}
+
+// ifMissingAddEnv returns a new environment derived from env
+// by adding ev=evv if env does not define env.
+func ifMissingAddEnv(env []string, ev string, evv string) []string {
+	evplus := ev + "="
+	for _, v := range env {
+		if strings.HasPrefix(v, evplus) {
+			return env
+		}
+	}
+	env = append(env, evplus+evv)
 	return env
 }
 
