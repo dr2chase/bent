@@ -3,6 +3,70 @@
 # that appear to be somewhat diverse.
 
 [[Benchmarks]]
+  Name = "minio"
+  Repo = "github.com/minio/minio/cmd"
+  Tests = "" # Don't run these tests; they hang, etc.
+  Benchmarks = "BenchmarkGetObject5MbFS" # not Get|Put|List
+  Disabled = true # Broken as of 2019-04-10
+
+[[Benchmarks]]
+  Name = "hugo_hugolib_sitebuilding"
+  Repo = "github.com/gohugoio/hugo/hugolib"
+  Tests = "Test"
+  Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20,shortcodes,render-12" 
+  Disabled = true # Broken as of 2019-04-10
+
+[[Benchmarks]]
+  Name = "hugo_hugolib"
+  Repo = "github.com/gohugoio/hugo/hugolib"
+  Tests = "Test"
+  Benchmarks = "BenchmarkParsePage"
+  Disabled = true # Broken as of 2019-04-10
+
+[[Benchmarks]]
+  Name = "ethereum_core"
+  Repo = "github.com/ethereum/go-ethereum/core"
+  Tests = "Test"
+  Benchmarks = "BenchmarkChainRead_full_10k"
+  NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  Disabled = true # Broken as of 2019-04-10
+
+[[Benchmarks]]
+  Name = "shopify_sarama"
+  Repo = "github.com/Shopify/sarama"
+  Tests = "Test"
+  Benchmarks = "None"
+  Disabled = true  
+
+[[Benchmarks]]
+  Name = "aws_restjson"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/restjson"
+  Tests = "Test"
+  Benchmarks = "None"
+  Disabled = true  
+
+[[Benchmarks]]
+  Name = "aws_restxml"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/restxml"
+  Tests = "Test"
+  Benchmarks = "None"
+  Disabled = true  
+
+[[Benchmarks]]
+  Name = "aws_jsonrpc"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
+  Tests = "Test"
+  Benchmarks = "None"
+  Disabled = true  
+
+[[Benchmarks]]
+  Name = "tidwall_tile38"
+  Repo = "github.com/tidwall/tile38/tests"
+  Tests = "Test"
+  Benchmarks = "None"
+  Disabled = true  
+
+[[Benchmarks]]
   Name = "ethereum_bitutil"
   Repo = "github.com/ethereum/go-ethereum/common/bitutil"
   Tests = "Test"
@@ -24,18 +88,11 @@
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
-  Name = "ethereum_core"
-  Repo = "github.com/ethereum/go-ethereum/core"
-  Tests = "Test"
-  Benchmarks = "BenchmarkChainRead_full_10k"
-  NotSandboxed = true # Won't cross-compile to Linux on MacOS
-
-[[Benchmarks]]
   Name = "ethereum_sha3"
   Repo = "github.com/ethereum/go-ethereum/crypto/sha3"
   Tests = "Test"
   Benchmarks = "BenchmarkSha3_224_MTU"
-  Disabled = true # Fails to fetch as of 2019-01
+  Disabled = true
 
 [[Benchmarks]]
   Name = "ethereum_ecies"
@@ -63,13 +120,7 @@
   Repo = "github.com/egonelbre/spexs2/_benchmark/"
   Tests = "Test"
   Benchmarks = "BenchmarkRun/10k/1"
-
-[[Benchmarks]]
-  Name = "minio"
-  Repo = "github.com/minio/minio/cmd"
-  Tests = "" # Don't run these tests; they hang, etc.
-  Benchmarks = "BenchmarkGetObject5MbFS" # not Get|Put|List
-  # Disabled = true # Broken as of 2018-04-24
+  Disabled = true # High levels of inlining cause an infinite loop!
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
@@ -102,20 +153,6 @@
   Benchmarks = "Benchmark(StripHTML|ReaderContains)"
 
 [[Benchmarks]]
-  Name = "hugo_hugolib"
-  Repo = "github.com/gohugoio/hugo/hugolib"
-  Tests = "Test"
-  Benchmarks = "BenchmarkParsePage"
-  # Disabled = true # Broken as of 2018-04-24
-
-[[Benchmarks]]
-  Name = "hugo_hugolib_sitebuilding"
-  Repo = "github.com/gohugoio/hugo/hugolib"
-  Tests = "Test"
-  Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20,shortcodes,render-12" 
-  # Disabled = true # Broken as of 2018-04-24
-
-[[Benchmarks]]
   Name = "k8s_api"
   Repo = "k8s.io/kubernetes/pkg/api/testing"
   Tests = "Test"
@@ -123,10 +160,10 @@
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
-  Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
+  Repo = "k8s.io/kubernetes/pkg/scheduler/internal/cache"
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
-  Disabled = true # Fails to fetch as of 2019-01
+  # Disabled = true
 
 [[Benchmarks]]
   Name = "uuid"
@@ -226,3 +263,40 @@
   Repo = "github.com/ericlagergren/decimal/benchmarks"
   Tests = "Test"
   Benchmarks = "BenchmarkPi_decimal_Go_9"
+
+[[Benchmarks]]
+  Name = "dustin_broadcast"
+  Repo = "github.com/dustin/go-broadcast"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "dustin_humanize"
+  Repo = "github.com/dustin/go-humanize"
+  Tests = "Test"
+  Benchmarks = "Benchmark(FtoaRegexTrailing|ParseBigBytes)"
+
+[[Benchmarks]]
+  Name = "rcrowley_metrics"
+  Repo = "github.com/rcrowley/go-metrics"
+  Tests = "Test"
+  Benchmarks = "Benchmark(BenchmarkCompute1000000|BenchmarkMetrics)"
+
+[[Benchmarks]]
+  Name = "aws_jsonutil"
+  Repo = "github.com/aws/aws-sdk-go/private/protocol/json/jsonutil"
+  Tests = "Test"
+  Benchmarks = "Benchmark"
+
+[[Benchmarks]]
+  Name = "kanzi"
+  Repo = "github.com/flanglet/kanzi-go/benchmark"
+  Tests = "Test"
+  Benchmarks = "Benchmark(BWTS|FPAQ|LZ|MTFT)"
+
+[[Benchmarks]]
+  Name = "commonmark_markdown"
+  Repo = "gitlab.com/golang-commonmark/markdown"
+  Tests = "Test"
+  Benchmarks = "Benchmark(RenderSpec|RenderSpecBlackFriday2)"
+
