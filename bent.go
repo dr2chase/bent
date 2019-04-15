@@ -293,7 +293,7 @@ ADD . /
 	// Normalize configuration goroot names by ensuring they end in '/'
 	// Process command-line-specified configurations
 	for i, trial := range todo.Configurations {
-		todo.Configurations[i].Disabled = todo.Configurations[i].Disabled
+		todo.Configurations[i].Name = os.ExpandEnv(trial.Name)
 		if configurations != nil {
 			_, present := configurations[trial.Name]
 			todo.Configurations[i].Disabled = !present
