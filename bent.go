@@ -554,7 +554,7 @@ ADD . /
 				}
 				cmd.Env = append(cmd.Env, config.GcEnv...)
 
-				s := config.runBinary("", cmd, true)
+				s, _ := config.runBinary("", cmd, true)
 				if s != "" {
 					fmt.Println("Error running go install std, ", s)
 					config.Disabled = true
@@ -711,7 +711,7 @@ ADD . /
 
 	var failures []string
 
-	// If there's an error running one of the benchmarks, report what we've got, please.
+	// If there's a bad error running one of the benchmarks, report what we've got, please.
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			if !config.Disabled { // Don't overwrite if something was disabled.
@@ -735,6 +735,8 @@ ADD . /
 			}
 		}
 	}(todo)
+
+	maxrc := 0
 
 	for i := 0; i < N; i++ {
 		// For each configuration, run all the benchmarks.
@@ -763,6 +765,7 @@ ADD . /
 
 				testBinaryName := b.Name + "_" + config.Name
 				var s string
+				var rc int
 
 				var wrappersAndBin []string
 				var wrapperPrefix string
@@ -797,7 +800,7 @@ ADD . /
 					cmd.Env = append(cmd.Env, "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					s = todo.Configurations[j].runBinary(cwd, cmd, false)
+					s, rc = todo.Configurations[j].runBinary(cwd, cmd, false)
 				} else {
 					// docker run --net=none -e GOROOT=... -w /src/github.com/minio/minio/cmd $D /testbin/cmd_Config.test -test.short -test.run=Nope -test.v -test.bench=Benchmark'(Get|Put|List)'
 					testdir := "/gopath/src/" + b.Repo
@@ -816,14 +819,20 @@ ADD . /
 					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
-					s = todo.Configurations[j].runBinary(cwd, cmd, false)
+					s, rc = todo.Configurations[j].runBinary(cwd, cmd, false)
 				}
 				if s != "" {
 					fmt.Println(s)
 					failures = append(failures, s)
 				}
+				if rc > maxrc {
+					maxrc = rc
+				}
 			}
 		}
+	}
+	if maxrc > 0 {
+		os.Exit(maxrc)
 	}
 }
 
@@ -862,7 +871,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
 		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
-		s := config.runBinary("", cmd, true)
+		s, _ := config.runBinary("", cmd, true)
 		if s != "" {
 			fmt.Println("Error running go clean -cache, ", s)
 		}
@@ -1018,7 +1027,7 @@ func copyFile(fromDir, file string) {
 
 // runBinary runs cmd and displays the output.
 // If the command returns an error, returns an error string.
-func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot bool) string {
+func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot bool) (string, int) {
 	line := asCommandLine(cwd, cmd)
 	if verbose > 0 {
 		fmt.Println(line)
@@ -1028,17 +1037,19 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot boo
 		}
 	}
 
+	rc := 0
+
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		return fmt.Sprintf("Error [stdoutpipe] running '%s', %v", line, err)
+		return fmt.Sprintf("Error [stdoutpipe] running '%s', %v", line, err), rc
 	}
 	stderr, err := cmd.StderrPipe()
 	if err != nil {
-		return fmt.Sprintf("Error [stderrpipe] running '%s', %v", line, err)
+		return fmt.Sprintf("Error [stderrpipe] running '%s', %v", line, err), rc
 	}
 	err = cmd.Start()
 	if err != nil {
-		return fmt.Sprintf("Error [command start] running '%s', %v", line, err)
+		return fmt.Sprintf("Error [command start] running '%s', %v", line, err), rc
 	}
 
 	var mu sync.Mutex
@@ -1077,22 +1088,25 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot boo
 	errS := <-doneS
 	errE := <-doneE
 
-	if err := cmd.Wait(); err != nil {
+	err = cmd.Wait();
+	rc = cmd.ProcessState.ExitCode()
+
+	if err != nil {
 		switch e := err.(type) {
 		case *exec.ExitError:
-			return fmt.Sprintf("Error running '%s', stderr = %s", line, e.Stderr)
+			return fmt.Sprintf("Error running '%s', stderr = %s, rc = %d", line, e.Stderr, rc), rc
 		default:
-			return fmt.Sprintf("Error running '%s', %v", line, e)
+			return fmt.Sprintf("Error running '%s', %v, rc = %d", line, e, rc), rc
 
 		}
 	}
 	if errS != nil {
-		return fmt.Sprintf("Error [read stdout] running '%s', %v", line, errS)
+		return fmt.Sprintf("Error [read stdout] running '%s', %v, rc = %d", line, errS, rc), rc
 	}
 	if errE != nil {
-		return fmt.Sprintf("Error [read stderr] running '%s', %v", line, errE)
+		return fmt.Sprintf("Error [read stderr] running '%s', %v, rc = %d", line, errE, rc), rc
 	}
-	return ""
+	return "", rc
 }
 
 // testBinaryName returns the name of the binary produced by "go test -c"
