@@ -80,7 +80,7 @@ A sample configuration entry with all the options supplied:
 ```
 The `Gc...` attributes apply to the test or benchmark compilation, the `Run...` attributes apply to the test or benchmark run.
 A `RunWrapper` command receives the entire command line as arguments, plus the environment variable `BENT_BINARY` set to the filename
-(excluding path) of the binary being run (for example, "uuid_Tip").  One useful example is `cpuprofile`:
+(excluding path) of the binary being run (for example, "uuid_Tip") and `BENT_I` set to the run number for this binary.  One useful example is `cpuprofile`:
 ```
 #!/bin/bash
 # Run args as command, but run cpuprofile and then pprof to capture test cpuprofile output
