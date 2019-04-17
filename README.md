@@ -1,4 +1,4 @@
-# bent
+### bent
 
 Bent automates downloading, compiling, and running Go tests and benchmarks from various Github repositories.
 By default the test/benchmark is run in a Docker container to provide some safety against accidentally making
@@ -41,6 +41,8 @@ Flags for your use:
 | -c list | use configurations from comma-separated list <br> (even if normally "disabled") | -c Tip,Go1.9 |
 | -r string | skip get and build, just run. string names Docker | |
 |           | image if need, else any non-empty will do. | -r f10cecc3eaac |
+| -s k | (build) shuffle flag, k = 0,1,2,3.  | -s 2 |
+|        | Randomizes build orders to reduce sensitivity to other machine load ||
 | -g | get benchmarks, but do not build or run | |
 | -l | list available benchmarks and configurations, then exit | |
 | -T | run tests instead of benchmarks | |
@@ -57,6 +59,7 @@ A sample benchmark entry:
   Repo = "gonum.org/v1/gonum/graph/topo/"
   Tests = "Test"
   Benchmarks = "Benchmark(TarjanSCCGnp_1000_half|TarjanSCCGnp_10_tenth)"
+  # NotSandboxed = true # uncomment if cannot be run in a Docker container
   # Disabled = true # uncomment to disable benchmark
 ```
 Here, `Name` is a short name, `Repo` is where the `go get` will find the benchmark, and `Tests` and `Benchmarks` and the
@@ -67,16 +70,24 @@ A sample configuration entry with all the options supplied:
 [[Configurations]]
   Name = "Resched"
   Root = "$HOME/GoogleDrive/work/go/"
-# Optional flags below
+ # Optional flags below
   GcFlags = "-d=ssa/insert_resched_checks/off"
   GcEnv = ["GOMAXPROCS=1","GOGC=200"]
-  RunEnv = ["GOGC=100"]
   RunFlags = ["-test.short"]
+  RunEnv = ["GOGC=100"]
   RunWrapper = ["foo"]
   Disabled = false
 ```
 The `Gc...` attributes apply to the test or benchmark compilation, the `Run...` attributes apply to the test or benchmark run.
 A `RunWrapper` command receives the entire command line as arguments, plus the environment variable `BENT_BINARY` set to the filename
-(excluding path) of the binary being run (for example, "uuid_Tip").  `foo` is supplied as a sample.
+(excluding path) of the binary being run (for example, "uuid_Tip").  One useful example is `cpuprofile`:
+```
+#!/bin/bash
+# Run args as command, but run cpuprofile and then pprof to capture test cpuprofile output
+pf="${BENT_BINARY}_${BENT_I}.prof" 
+"$@" -test.cpuprofile="$pf"
+echo cpuprofile in `pwd`/"$mf"
+go tool pprof -text -flat -nodecount=20 "$pf"
+```
 
-The `Disabled` attribute for both benchmarks and configurations disables them from normally use, but leaves them accessible to explicit request with `-b` or `-c`.
+The `Disabled` attribute for both benchmarks and configurations removes them from normal use, but leaves them accessible to explicit request with `-b` or `-c`.
