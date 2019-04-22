@@ -120,7 +120,6 @@
   Repo = "github.com/egonelbre/spexs2/_benchmark/"
   Tests = "Test"
   Benchmarks = "BenchmarkRun/10k/1"
-  Disabled = true # High levels of inlining cause an infinite loop!
 
 [[Benchmarks]]
   Name = "gonum_blas_native"

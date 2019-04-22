@@ -42,6 +42,7 @@ type BenchStat struct {
 type Configuration struct {
 	Name       string   // Short name used for binary names, mention on command line
 	Root       string   // Specific Go root to use for this trial
+	BuildFlags []string // BuildFlags supplied to 'go test -c' for building (e.g., "-p 1")
 	GcFlags    string   // GcFlags supplied to 'go test -c' for building
 	GcEnv      []string // Environment variables supplied to 'go test -c' for building
 	RunFlags   []string // Extra flags passed to the test binary
@@ -541,6 +542,7 @@ ADD . /
 					return // The alternate OS is linux
 				}
 				cmd := exec.Command(gocmd, "install", "-a")
+				cmd.Args = append(cmd.Args, config.BuildFlags...)
 				if config.GcFlags != "" {
 					cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 				}
@@ -885,6 +887,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	if explicitAll == 1 {
 		cmd.Args = append(cmd.Args, "-a")
 	}
+	cmd.Args = append(cmd.Args, config.BuildFlags...)
 	if config.GcFlags != "" {
 		cmd.Args = append(cmd.Args, "-gcflags="+config.GcFlags)
 	}
@@ -1088,7 +1091,7 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot boo
 	errS := <-doneS
 	errE := <-doneE
 
-	err = cmd.Wait();
+	err = cmd.Wait()
 	rc = cmd.ProcessState.ExitCode()
 
 	if err != nil {
