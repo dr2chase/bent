@@ -225,6 +225,8 @@ benchstat.
 		os.Chmod("foo", 0755)
 		copyFile(gopathInit+"/"+srcPath, "memprofile")
 		os.Chmod("memprofile", 0755)
+		copyFile(gopathInit+"/"+srcPath, "cpuprofile")
+		os.Chmod("cpuprofile", 0755)
 		copyFile(gopathInit+"/"+srcPath, "tmpclr")
 		os.Chmod("tmpclr", 0755)
 		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
