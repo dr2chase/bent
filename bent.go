@@ -1057,7 +1057,7 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot boo
 		return fmt.Sprintf("Error [command start] running '%s', %v", line, err), rc
 	}
 
-	var mu sync.Mutex
+	var mu = &sync.Mutex{}
 
 	f := func(r *bufio.Reader, done chan error) {
 		for {

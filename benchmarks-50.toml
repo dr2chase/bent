@@ -98,8 +98,9 @@
   Name = "ethereum_ecies"
   Repo = "github.com/ethereum/go-ethereum/crypto/ecies"
   Tests = "Test"
-  Benchmarks = "BenchmarkGenSharedKeyP256"
+  Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
+  Disabled = true # Bizarrely, not a benchmark anymore
 
 [[Benchmarks]]
   Name = "ethereum_corevm"
@@ -168,7 +169,8 @@
   Name = "uuid"
   Repo = "github.com/satori/go.uuid/"
   Tests = "Test"
-  Benchmarks = "Benchmark(NewV5|MarshalToString)"
+  Benchmarks = "Benchmark"
+  Disabled = true # not a benchmark anymore
 
 [[Benchmarks]]
   Name = "gonum_topo"
@@ -225,7 +227,7 @@
   Repo = "github.com/cespare/xxhash"
   BuildFlags = ["-tags", "purego"]
   Tests = "Test"
-  Benchmarks = "BenchmarkHashes/xxhash-string,n=10_MB"
+  Benchmarks = "BenchmarkHashes/.*,direct,string,n=10MB"
 
 [[Benchmarks]]
   Name = "gtank_blake2s"
@@ -261,7 +263,14 @@
   Name = "ericlagergren_decimal"
   Repo = "github.com/ericlagergren/decimal/benchmarks"
   Tests = "Test"
-  Benchmarks = "BenchmarkPi_decimal_Go_9"
+  Benchmarks = "BenchmarkPi/foo=.*/prec=100"
+
+[[Benchmarks]]
+  Name = "ericlagergren_decimal_x"
+  Repo = "github.com/ericlagergren/decimal/benchmarks"
+  Tests = "Test"
+  Benchmarks = "BenchmarkPi/foo=ericlagergren_.Go./prec=100"
+  Disabled = true
 
 [[Benchmarks]]
   Name = "dustin_broadcast"
@@ -279,7 +288,7 @@
   Name = "rcrowley_metrics"
   Repo = "github.com/rcrowley/go-metrics"
   Tests = "Test"
-  Benchmarks = "Benchmark(BenchmarkCompute1000000|BenchmarkMetrics)"
+  Benchmarks = "(BenchmarkCompute1000000|BenchmarkMetrics)"
 
 [[Benchmarks]]
   Name = "aws_jsonutil"
