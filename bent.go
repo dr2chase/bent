@@ -909,6 +909,26 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	} else {
 		fmt.Print(".")
 	}
+
+	cleanup := func() {
+		if verbose > 0 {
+			fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
+		}
+		// Necessary to make directories writeable with new module stuff.
+		filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
+			if path != "" && info != nil {
+				if mode := info.Mode(); 0 == mode&os.ModeSymlink {
+					os.Chmod(path, (0700|mode)&os.ModePerm)
+				}
+			}
+			return nil
+		})
+		os.RemoveAll(gopath + "/pkg")
+		os.RemoveAll(gopath + "/bin")
+	}
+
+	defer cleanup()
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		s := ""
@@ -942,6 +962,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	f, err := os.OpenFile(config.buildBenchName(), os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		fmt.Printf("There was an error opening %s for append, error %v\n", config.buildBenchName(), err)
+		cleanup()
 		os.Exit(2)
 	}
 	f.Write(buf.Bytes())
@@ -954,6 +975,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 	err = os.Rename(from, to)
 	if err != nil {
 		fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
+		cleanup()
 		os.Exit(1)
 	}
 	// Trim /usr/bin/time info from soutput, it's ugly
@@ -965,21 +987,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 		}
 		fmt.Print(soutput)
 	}
-	if verbose > 0 {
-		fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
-	}
 
-	// Necessary to make directories writeable with new module stuff.
-	filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
-		if path != "" && info != nil {
-			if mode := info.Mode(); 0 == mode&os.ModeSymlink {
-				os.Chmod(path, (0700|mode)&os.ModePerm)
-			}
-		}
-		return nil
-	})
-	os.RemoveAll(gopath + "/pkg")
-	os.RemoveAll(gopath + "/bin")
 	return ""
 }
 
