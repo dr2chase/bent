@@ -296,7 +296,8 @@ ADD . /
 	// Normalize configuration goroot names by ensuring they end in '/'
 	// Process command-line-specified configurations
 	for i, trial := range todo.Configurations {
-		todo.Configurations[i].Name = os.ExpandEnv(trial.Name)
+		trial.Name = os.ExpandEnv(trial.Name)
+		todo.Configurations[i].Name = trial.Name
 		if configurations != nil {
 			_, present := configurations[trial.Name]
 			todo.Configurations[i].Disabled = !present
@@ -1195,7 +1196,7 @@ func ifMissingAddEnv(env []string, ev string, evv string) []string {
 	return env
 }
 
-// csToset converts a commo-separated string into the set of strings between the commas.
+// csToset converts a comma-separated string into the set of strings between the commas.
 func csToSet(s string) map[string]bool {
 	if s == "" {
 		return nil
