@@ -1,7 +1,7 @@
 # Benchmarks that build, and that run quickly enough.
 # The noisy ones are listed at the bottom
 
-// etcd bleve
+# etcd bleve
 
 [[Benchmarks]]
   Name = "dustin_broadcast"
@@ -66,7 +66,7 @@
 
 [[Benchmarks]]
   Name = "ethereum_storage"
-  Repo = "github.com/ethereum/go-ethereum/swarm/storage"
+  Repo = "github.com/ethersphere/swarm/storage"
   Tests = "Test"
   Benchmarks = "Benchmark(Join|SplitTree)" # SplitPyramid seems to have a bug
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
@@ -83,14 +83,12 @@
   Repo = "github.com/ethereum/go-ethereum/core"
   Tests = "Test"
   Benchmarks = "Benchmark([IPF]|ChainW)" # ChainRead crashes as of 1.10 on 2018-03-16
-  NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
   Name = "ethereum_sha3"
   Repo = "github.com/ethereum/go-ethereum/crypto/sha3"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # Not building as of 2019-01
 
 [[Benchmarks]]
   Name = "ethereum_ecies"
@@ -119,14 +117,12 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  # Disabled = true # Failed to build, and it's noisy anyway.
 
 [[Benchmarks]]
   Name = "eolian_dsp"
   Repo = "buddin.us/eolian/dsp"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # Not always resolving host,
 
 [[Benchmarks]]
   Name = "spexs2"
@@ -139,7 +135,6 @@
   Repo = "github.com/minio/minio/cmd"
   Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGetObject[^V125]" # not Get|Put|List
-  disabled = true # seems not to work at all on Linux 2018-06-18
 
 [[Benchmarks]]
   Name = "gonum_blas_native"
@@ -194,7 +189,6 @@
   Repo = "k8s.io/kubernetes/pkg/scheduler/cache"
   Tests = "Test"
   Benchmarks = "Benchmark"
-  Disabled = true # Go get failed as of 2018-03-05, again at 2019-01
 
 [[Benchmarks]]
   Name = "uuid"

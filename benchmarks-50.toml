@@ -7,7 +7,6 @@
   Repo = "github.com/minio/minio/cmd"
   Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGetObject5MbFS" # not Get|Put|List
-  Disabled = true # Broken as of 2019-04-10
 
 [[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
@@ -27,44 +26,43 @@
   Name = "ethereum_core"
   Repo = "github.com/ethereum/go-ethereum/core"
   Tests = "Test"
-  Benchmarks = "BenchmarkChainRead_full_10k"
+  Benchmarks = "BenchmarkInsertChain_ring1000_memdb"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  Disabled = true # Broken as of 2019-04-10
 
 [[Benchmarks]]
   Name = "shopify_sarama"
   Repo = "github.com/Shopify/sarama"
   Tests = "Test"
-  Benchmarks = "None"
-  Disabled = true  
+  Benchmarks = "Benchmark"
+  Disabled = true # Has no actual benchmarks.
 
 [[Benchmarks]]
   Name = "aws_restjson"
   Repo = "github.com/aws/aws-sdk-go/private/protocol/restjson"
   Tests = "Test"
-  Benchmarks = "None"
-  Disabled = true  
+  Benchmarks = "Benchmark"
+  Disabled = true  # Has no actual benchmarks.
 
 [[Benchmarks]]
   Name = "aws_restxml"
   Repo = "github.com/aws/aws-sdk-go/private/protocol/restxml"
   Tests = "Test"
-  Benchmarks = "None"
-  Disabled = true  
+  Benchmarks = "Benchmark"
+  Disabled = true    # Has no actual benchmarks.
 
 [[Benchmarks]]
   Name = "aws_jsonrpc"
   Repo = "github.com/aws/aws-sdk-go/private/protocol/jsonrpc"
   Tests = "Test"
-  Benchmarks = "None"
-  Disabled = true  
+  Benchmarks = "Benchmark"
+  Disabled = true    # Has no actual benchmarks.
 
 [[Benchmarks]]
   Name = "tidwall_tile38"
   Repo = "github.com/tidwall/tile38/tests"
   Tests = "Test"
-  Benchmarks = "None"
-  Disabled = true  
+  Benchmarks = "Benchmark"
+  Disabled = true    # Has no actual benchmarks.
 
 [[Benchmarks]]
   Name = "ethereum_bitutil"
@@ -75,7 +73,7 @@
 
 [[Benchmarks]]
   Name = "ethereum_storage"
-  Repo = "github.com/ethereum/go-ethereum/swarm/storage"
+  Repo = "github.com/ethersphere/swarm/storage"
   Tests = "Test"
   Benchmarks = "BenchmarkJoin_8" # SplitPyramid seems to have a bug
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
@@ -100,7 +98,6 @@
   Tests = "Test"
   Benchmarks = "Benchmark"
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
-  Disabled = true # Bizarrely, not a benchmark anymore
 
 [[Benchmarks]]
   Name = "ethereum_corevm"
@@ -163,7 +160,6 @@
   Repo = "k8s.io/kubernetes/pkg/scheduler/internal/cache"
   Tests = "Test"
   Benchmarks = "BenchmarkList1kNodes30kPods"
-  # Disabled = true
 
 [[Benchmarks]]
   Name = "uuid"
@@ -240,6 +236,7 @@
   Repo = "github.com/gtank/ed25519"
   Tests = "Test"
   Benchmarks = "Benchmark(IsOnCurve|ScalarMult)"
+  Disabled = true # ed25519/fe.go:11:2: use of internal package github.com/gtank/ristretto255/internal/radix51 not allowed
 
 [[Benchmarks]]
   Name = "nelsam_gxui_interval"
