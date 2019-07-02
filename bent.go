@@ -865,6 +865,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 		if root != "" {
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
+		cmd.Env = append(cmd.Env, config.GcEnv...)
 		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
 		s, _ := config.runBinary("", cmd, true)
 		if s != "" {
