@@ -525,7 +525,7 @@ ADD . /
 					config.Disabled = true
 				}
 
-				cp := exec.Command("cp", "-Rp", from + "/", to)
+				cp := exec.Command("rsync", "-a", from + "/", to)
 				s, _ = config.runBinary("", cp, false)
 				if s != "" {
 					fmt.Println("Error copying directory tree, ", from, to)
