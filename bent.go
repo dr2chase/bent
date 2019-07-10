@@ -10,7 +10,6 @@ import (
 	"flag"
 	"fmt"
 	"github.com/BurntSushi/toml"
-	"github.com/otiai10/copy"
 	"io"
 	"io/ioutil"
 	"math/rand"
@@ -80,6 +79,15 @@ var runContainer = "" // if nonempty, skip builds and use existing named contain
 var wikiTable = false // emit the tests in a form usable in a wiki table
 var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating flag causes multiple rebuilds, useful for build benchmarking.
 var shuffle = 2       // Dimensionality of (build) shuffling; 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.
+
+var copyExes = []string{
+	"foo", "memprofile", "cpuprofile", "tmpclr",
+}
+
+var copyConfigs = []string{
+	"benchmarks-all.toml", "benchmarks-50.toml", "benchmarks-gc.toml", "benchmarks-gcplus.toml", "benchmarks-trial.toml",
+	"configurations-sample.toml", "configurations-gollvm.toml",
+}
 
 var defaultEnv []string
 
@@ -178,7 +186,7 @@ benchstat.
 	_, serr := os.Stat("gopath/src") // existence of src prevents initialization of Dockerfile
 
 	if perr == nil || berr == nil {
-		fmt.Printf("Building/running tests will trash pkg and bin, please remove, rename or run in another directory.\n")
+		fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, please remove, rename or run in another directory.\n")
 		os.Exit(1)
 	}
 	if derr != nil && !initialize {
@@ -211,20 +219,13 @@ benchstat.
 		if anyerr {
 			os.Exit(1)
 		}
-		copyFile(gopathInit+"/"+srcPath, "foo")
-		os.Chmod("foo", 0755)
-		copyFile(gopathInit+"/"+srcPath, "memprofile")
-		os.Chmod("memprofile", 0755)
-		copyFile(gopathInit+"/"+srcPath, "cpuprofile")
-		os.Chmod("cpuprofile", 0755)
-		copyFile(gopathInit+"/"+srcPath, "tmpclr")
-		os.Chmod("tmpclr", 0755)
-		copyFile(gopathInit+"/"+srcPath, "benchmarks-all.toml")
-		copyFile(gopathInit+"/"+srcPath, "benchmarks-50.toml")
-		copyFile(gopathInit+"/"+srcPath, "benchmarks-gc.toml")
-		copyFile(gopathInit+"/"+srcPath, "benchmarks-gcplus.toml")
-		copyFile(gopathInit+"/"+srcPath, "benchmarks-trial.toml")
-		copyFile(gopathInit+"/"+srcPath, "configurations-sample.toml")
+		for _, s := range copyExes {
+			copyFile(gopathInit+"/"+srcPath, s)
+			os.Chmod(s, 0755)
+		}
+		for _, s := range copyConfigs {
+			copyFile(gopathInit+"/"+srcPath, s)
+		}
 
 		err := ioutil.WriteFile("Dockerfile",
 			[]byte(`
@@ -517,10 +518,19 @@ ADD . /
 			todo.Configurations[ci] = config
 
 			docopy := func(from, to string) {
-				if verbose > 0 {
-					fmt.Printf("cp -rp %s %s\n", from, to)
+				mkdir := exec.Command("mkdir", "-p",  to)
+				s, _ := config.runBinary("", mkdir, false)
+				if s != "" {
+					fmt.Println("Error creating directory, ",  to)
+					config.Disabled = true
 				}
-				copy.Copy(from, to)
+
+				cp := exec.Command("cp", "-Rp", from + "/", to)
+				s, _ = config.runBinary("", cp, false)
+				if s != "" {
+					fmt.Println("Error copying directory tree, ", from, to)
+					config.Disabled = true
+				}
 			}
 
 			docopy(root+"bin", rootCopy+"bin")
