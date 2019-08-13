@@ -29,18 +29,19 @@ type BenchStat struct {
 }
 
 type Configuration struct {
-	Name       string   // Short name used for binary names, mention on command line
-	Root       string   // Specific Go root to use for this trial
-	BuildFlags []string // BuildFlags supplied to 'go test -c' for building (e.g., "-p 1")
-	GcFlags    string   // GcFlags supplied to 'go test -c' for building
-	GcEnv      []string // Environment variables supplied to 'go test -c' for building
-	RunFlags   []string // Extra flags passed to the test binary
-	RunEnv     []string // Extra environment variables passed to the test binary
-	RunWrapper []string // (Outermost) Command and args to precede whatever the operation is; may fail in the sandbox.
-	Disabled   bool     // True if this configuration is temporarily disabled
-	buildStats []BenchStat
-	writer     *os.File
-	rootCopy   string // The contents of GOROOT are copied here to allow benchmarking of just the test compilation.
+	Name        string   // Short name used for binary names, mention on command line
+	Root        string   // Specific Go root to use for this trial
+	BuildFlags  []string // BuildFlags supplied to 'go test -c' for building (e.g., "-p 1")
+	AfterBuild  []string // Array of commands to run, output of all commands for a configuration (across binaries) is collected in <runstamp>.<config>.<cmd>
+	GcFlags     string   // GcFlags supplied to 'go test -c' for building
+	GcEnv       []string // Environment variables supplied to 'go test -c' for building
+	RunFlags    []string // Extra flags passed to the test binary
+	RunEnv      []string // Extra environment variables passed to the test binary
+	RunWrapper  []string // (Outermost) Command and args to precede whatever the operation is; may fail in the sandbox.
+	Disabled    bool     // True if this configuration is temporarily disabled
+	buildStats  []BenchStat
+	benchWriter *os.File
+	rootCopy    string // The contents of GOROOT are copied here to allow benchmarking of just the test compilation.
 }
 
 type Benchmark struct {
@@ -81,7 +82,7 @@ var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating fla
 var shuffle = 2       // Dimensionality of (build) shuffling; 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.
 
 var copyExes = []string{
-	"foo", "memprofile", "cpuprofile", "tmpclr",
+	"foo", "memprofile", "cpuprofile", "tmpclr", "benchsize", "benchdwarf",
 }
 
 var copyConfigs = []string{
@@ -97,6 +98,9 @@ type pair struct {
 type triple struct {
 	b, c, k int
 }
+
+// To disambiguate repeated test runs in the same directory.
+var runstamp = strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
 
 func main() {
 
@@ -285,7 +289,8 @@ ADD . /
 	}
 
 	// Normalize configuration goroot names by ensuring they end in '/'
-	// Process command-line-specified configurations
+	// Process command-line-specified configurations.
+	// Expand environment variables mentioned there.
 	for i, trial := range todo.Configurations {
 		trial.Name = os.ExpandEnv(trial.Name)
 		todo.Configurations[i].Name = trial.Name
@@ -403,6 +408,8 @@ ADD . /
 		}
 	}
 	defaultEnv = replaceEnv(defaultEnv, "GOPATH", gopath)
+	defaultEnv = replaceEnv(defaultEnv, "GOOS", runtime.GOOS)
+	defaultEnv = replaceEnv(defaultEnv, "GOARCH", runtime.GOARCH)
 	defaultEnv = ifMissingAddEnv(defaultEnv, "GO111MODULE", "auto")
 
 	var needSandbox bool    // true if any benchmark needs a sandbox
@@ -413,16 +420,15 @@ ADD . /
 	err = os.Mkdir(testBinDir, 0775)
 	// Ignore the error -- TODO note the difference between exists already and other errors.
 
-	runstamp := strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
 	for i, config := range todo.Configurations {
 		if !config.Disabled { // Don't overwrite if something was disabled.
-			s := testBinDir + "/" + runstamp + "." + config.Name + ".stdout"
+			s := config.thingBenchName("stdout")
 			f, err := os.OpenFile(s, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, os.ModePerm)
 			if err != nil {
 				fmt.Printf("There was an error opening %s for output, error %v\n", s, err)
 				os.Exit(2)
 			}
-			todo.Configurations[i].writer = f
+			todo.Configurations[i].benchWriter = f
 		}
 	}
 
@@ -480,22 +486,14 @@ ADD . /
 			return
 		}
 
+		// Create build-related benchmark files
+		for ci := range todo.Configurations {
+			todo.Configurations[ci].createFilesForLater()
+		}
+
 		// Compile tests and move to ./testbin/Bench_Config.
 		// If any test needs sandboxing, then one docker container will be created
 		// (that contains all the tests).
-
-		for ci, config := range todo.Configurations {
-			if config.Disabled {
-				continue
-			}
-			f, err := os.Create(config.buildBenchName())
-			if err != nil {
-				fmt.Println("Error creating build benchmark file ", config.buildBenchName(), ", err=", err)
-				todo.Configurations[ci].Disabled = true
-			} else {
-				f.Close() // will be appending later
-			}
-		}
 
 		if verbose == 0 {
 			fmt.Print("Building goroots")
@@ -518,18 +516,18 @@ ADD . /
 			todo.Configurations[ci] = config
 
 			docopy := func(from, to string) {
-				mkdir := exec.Command("mkdir", "-p",  to)
+				mkdir := exec.Command("mkdir", "-p", to)
 				s, _ := config.runBinary("", mkdir, false)
 				if s != "" {
-					fmt.Println("Error creating directory, ",  to)
+					fmt.Println("Error creating directory, ", to)
 					config.Disabled = true
 				}
 
-				cp := exec.Command("rsync", "-a", from + "/", to)
+				cp := exec.Command("rsync", "-a", from+"/", to)
 				s, _ = config.runBinary("", cp, false)
 				if s != "" {
 					fmt.Println("Error copying directory tree, ", from, to)
-					config.Disabled = true
+					// Not disabling because gollvm uses a different directory structure
 				}
 			}
 
@@ -596,7 +594,7 @@ ADD . /
 						if config.Disabled {
 							continue
 						}
-						s := compileOne(&todo.Configurations[ci], &todo.Benchmarks[bi], cwd)
+						s := todo.Configurations[ci].compileOne(&todo.Benchmarks[bi], cwd, yyy)
 						if s != "" {
 							getAndBuildFailures = append(getAndBuildFailures, s)
 						}
@@ -622,7 +620,7 @@ ADD . /
 						if config.Disabled {
 							continue
 						}
-						s := compileOne(config, &todo.Benchmarks[bi], cwd)
+						s := config.compileOne(&todo.Benchmarks[bi], cwd, yyy)
 						if s != "" {
 							getAndBuildFailures = append(getAndBuildFailures, s)
 						}
@@ -647,14 +645,14 @@ ADD . /
 					if bench.Disabled || config.Disabled {
 						continue
 					}
-					s := compileOne(config, bench, cwd)
+					s := config.compileOne(bench, cwd, yyy)
 					if s != "" {
 						getAndBuildFailures = append(getAndBuildFailures, s)
 					}
 				}
 			}
 
-		case 3: // Shuffle all the N copies of all the benchmark and confioguration pairs, build them all.
+		case 3: // Shuffle all the N copies of all the benchmark and configuration pairs, build them all.
 			permute := make([]triple, buildCount*len(todo.Configurations)*len(todo.Benchmarks))
 			i := 0
 			for k := 0; k < buildCount; k++ {
@@ -673,7 +671,7 @@ ADD . /
 				if bench.Disabled || config.Disabled {
 					continue
 				}
-				s := compileOne(config, bench, cwd)
+				s := config.compileOne(bench, cwd, p.k)
 				if s != "" {
 					getAndBuildFailures = append(getAndBuildFailures, s)
 				}
@@ -720,7 +718,7 @@ ADD . /
 	defer func(t *Todo) {
 		for _, config := range todo.Configurations {
 			if !config.Disabled { // Don't overwrite if something was disabled.
-				config.writer.Close()
+				config.benchWriter.Close()
 			}
 		}
 		if needSandbox {
@@ -743,6 +741,8 @@ ADD . /
 
 	maxrc := 0
 
+	// N repetitions of for each configurationm, run all the bencmarks.
+	// TODO randomize the benchmarks and configurations, like for builds.
 	for i := 0; i < N; i++ {
 		// For each configuration, run all the benchmarks.
 		for j, config := range todo.Configurations {
@@ -768,7 +768,7 @@ ADD . /
 					benchWrapper = "/" + b.RunWrapper[0]
 				}
 
-				testBinaryName := b.Name + "_" + config.Name
+				testBinaryName := config.benchName(&b)
 				var s string
 				var rc int
 
@@ -842,7 +842,18 @@ ADD . /
 }
 
 func (c *Configuration) buildBenchName() string {
-	return testBinDir + "/" + c.Name + ".build"
+	return c.thingBenchName("build")
+}
+
+func (c *Configuration) thingBenchName(suffix string) string {
+	if strings.ContainsAny(suffix, "/") {
+		suffix = suffix[strings.LastIndex(suffix, "/")+1:]
+	}
+	return testBinDir + "/" + runstamp + "." + c.Name + "." + suffix
+}
+
+func (c *Configuration) benchName(b *Benchmark) string {
+	return b.Name + "_" + c.Name
 }
 
 func (c *Configuration) goCommand() string {
@@ -861,7 +872,78 @@ func (c *Configuration) goCommandCopy() string {
 	return gocmd
 }
 
-func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
+func (config *Configuration) createFilesForLater() {
+	if config.Disabled {
+		return
+	}
+	f, err := os.Create(config.buildBenchName())
+	if err != nil {
+		fmt.Println("Error creating build benchmark file ", config.buildBenchName(), ", err=", err)
+		config.Disabled = true
+	} else {
+		f.Close() // will be appending later
+	}
+
+	for _, cmd := range config.AfterBuild {
+		tbn := config.thingBenchName(cmd)
+		f, err := os.Create(tbn)
+		if err != nil {
+			fmt.Printf("Error creating %s benchmark file %s, err=%v\n", cmd, config.thingBenchName(cmd), err)
+			continue
+		} else {
+			f.Close() // will be appending later
+		}
+	}
+}
+
+func (config *Configuration) runOtherBenchmarks(b *Benchmark, cwd string) {
+	// Run various other "benchmark" commands on the built binaries, e.g., size, quality of debugging information.
+	if config.Disabled {
+		return
+	}
+
+	for _, cmd := range config.AfterBuild {
+		tbn := config.thingBenchName(cmd)
+		f, err := os.OpenFile(tbn, os.O_WRONLY|os.O_APPEND, os.ModePerm)
+		if err != nil {
+			fmt.Printf("There was an error opening %s for append, error %v\n", tbn, err)
+			continue
+		}
+
+		if !strings.ContainsAny(cmd, "/") {
+			cmd = cwd + "/" + cmd
+		}
+		if b.Disabled {
+			continue
+		}
+		testBinaryName := config.benchName(b)
+		c := exec.Command(cmd, testBinDir+"/"+testBinaryName, b.Name)
+
+		c.Env = defaultEnv
+		if !b.NotSandboxed {
+			c.Env = replaceEnv(c.Env, "GOOS", "linux")
+		}
+
+		if verbose > 0 {
+			fmt.Println(asCommandLine(cwd, c))
+		}
+		output, err := c.CombinedOutput()
+		if verbose > 0 || err != nil {
+			fmt.Println(string(output))
+		} else {
+			fmt.Print(".")
+		}
+		if err != nil {
+			fmt.Printf("Error running %s\n", cmd)
+			continue
+		}
+		f.Write(output)
+		f.Sync()
+		f.Close()
+	}
+}
+
+func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int) string {
 	root := config.rootCopy
 	gocmd := config.goCommandCopy()
 	gopath := cwd + "/gopath"
@@ -973,7 +1055,7 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 
 	// Move generated binary to well-known place.
 	from := cmd.Dir + "/" + bench.testBinaryName()
-	to := testBinDir + "/" + bench.Name + "_" + config.Name
+	to := testBinDir + "/" + config.benchName(bench)
 	err = os.Rename(from, to)
 	if err != nil {
 		fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
@@ -988,6 +1070,11 @@ func compileOne(config *Configuration, bench *Benchmark, cwd string) string {
 			soutput = soutput[:i]
 		}
 		fmt.Print(soutput)
+	}
+
+	// Do this here before any cleanup.
+	if count == 0 {
+		config.runOtherBenchmarks(bench, cwd)
 	}
 
 	return ""
@@ -1075,11 +1162,11 @@ func (c *Configuration) runBinary(cwd string, cmd *exec.Cmd, printWorkingDot boo
 			n := len(bytes)
 			if n > 0 {
 				mu.Lock()
-				nw, err := c.writer.Write(bytes[0:n])
+				nw, err := c.benchWriter.Write(bytes[0:n])
 				if err != nil {
 					fmt.Printf("Error writing, err = %v, nwritten = %d, nrequested = %d\n", err, nw, n)
 				}
-				c.writer.Sync()
+				c.benchWriter.Sync()
 				fmt.Print(string(bytes[0:n]))
 				mu.Unlock()
 			}
@@ -1171,17 +1258,14 @@ func inheritEnv(env []string, ev string) []string {
 // by removing any existing definition of ev and adding ev=evv.
 func replaceEnv(env []string, ev string, evv string) []string {
 	evplus := ev + "="
-	var found bool
-	for i, v := range env {
-		if strings.HasPrefix(v, evplus) {
-			found = true
-			env[i] = evplus + evv
+	var newenv []string
+	for _, v := range env {
+		if !strings.HasPrefix(v, evplus) {
+			newenv = append(newenv, v)
 		}
 	}
-	if !found {
-		env = append(env, evplus+evv)
-	}
-	return env
+	newenv = append(newenv, evplus+evv)
+	return newenv
 }
 
 // ifMissingAddEnv returns a new environment derived from env
