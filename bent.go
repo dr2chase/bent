@@ -66,7 +66,8 @@ var verbose int
 
 var benchFile = "benchmarks-50.toml"         // default list of benchmarks
 var confFile = "configurations.toml"         // default list of configurations
-var testBinDir = "testbin"                   // destination for generated binaries and benchmark outputs
+var testBinDir = "testbin"                   // destination for generated binaries
+var benchDir = "bench"                       // destination for benchmark outputs
 var srcPath = "src/github.com/dr2chase/bent" // Used to find configuration files.
 var container = ""
 var N = 1
@@ -165,10 +166,11 @@ may be created (and deleted) in the process of compiling the benchmarks.
 The same is true of subdirectory "goroots".
 It will also extensively modify subdirectory "gopath/src".
 
-All the test binaries and test output will appear in the subdirectory
-'testbin', where output will have the suffix '.stdout'.  The test output
-is grouped by configuration to allow easy benchmark comparisons with
-benchstat.
+All the test binaries will appear in the subdirectory 'testbin',
+and test (benchmark) output will appear in the subdirectory 'bench'
+with the suffix '.stdout'.  The test output is grouped by configuration
+to allow easy benchmark comparisons with benchstat.  Other benchmarking
+results will also appear in 'bench'.
 `, os.Args[0], benchFile, confFile)
 	}
 
@@ -418,6 +420,7 @@ ADD . /
 	var getAndBuildFailures []string
 
 	err = os.Mkdir(testBinDir, 0775)
+	err = os.Mkdir(benchDir, 0775)
 	// Ignore the error -- TODO note the difference between exists already and other errors.
 
 	for i, config := range todo.Configurations {
@@ -849,7 +852,7 @@ func (c *Configuration) thingBenchName(suffix string) string {
 	if strings.ContainsAny(suffix, "/") {
 		suffix = suffix[strings.LastIndex(suffix, "/")+1:]
 	}
-	return testBinDir + "/" + runstamp + "." + c.Name + "." + suffix
+	return benchDir + "/" + runstamp + "." + c.Name + "." + suffix
 }
 
 func (c *Configuration) benchName(b *Benchmark) string {

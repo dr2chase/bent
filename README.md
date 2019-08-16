@@ -8,7 +8,7 @@ Installation:
 ```go get github.com/dr2chase/bent```
 Also depends on burntsushi/toml, and expects that Docker is installed and available on the command line.  You can avoid the need for Docker with the `-U` command line flag, if you're okay with running benchmarks outside containers.  Alternately, if you wish to only run those benchmarks that can be compiled into a container (this is platform-dependent), use the -S flag.
 
-Initial usage:
+Initial usage (this works if you have bent checked out on GOPATH, `bent -I` expects to find files there, this needs fixing):
 
 ```
 go get github.com/dr2chase/bent
@@ -20,12 +20,16 @@ nano configurations.toml # or use your favorite editor
 bent -v # will run default set of ~50 benchmarks using supplied configuration(s)
 ```
 
-The output, both binaries and the benchmark results, is all placed
-in testbin, and the binaries are also incorporated into Docker containers.
-Each benchmark and configuration has a shortname, and the generated binaries
-combine these shortnames, for example `gonum_mat_Tip` and `gonum_mat_Go1.9`.
-Benchmark output is grouped by configuration and has `.stdout` suffix, for
-example `Tip.stdout` and `Go1.9.stdout`.
+The output binaries are placed in subdirectory testbin, and various
+benchmark results (from building, run, and others requested) are
+placed in subdirectory  bench, and the binaries are also incorporated
+into Docker containers if Docker is used. Each benchmark and
+configuration has a shortname, and the generated binaries combine
+these shortnames, for example `gonum_mat_Tip` and `gonum_mat_Go1.9`.
+Benchmark files are prefixed with a run timestamp, and grouped by
+configuration, with various suffixes for the various benchmarks.
+Run benchmarks appears in files with suffix `.stdout`.
+Others are more obviously named, with suffixes `.build`, `.benchsize`, and `.benchdwarf`.
 
 Flags for your use:
 
@@ -40,7 +44,8 @@ Flags for your use:
 | -b list | run benchmarks in comma-separated list <br> (even if normally "disabled" )| -b uuid,gonum_topo |
 | -c list | use configurations from comma-separated list <br> (even if normally "disabled") | -c Tip,Go1.9 |
 | -r string | skip get and build, just run. string names Docker | |
-|           | image if need, else any non-empty will do. | -r f10cecc3eaac |
+|           | image if needed, else any non-empty will do. | -r f10cecc3eaac |
+| -a N | repeat builds for build benchmarking | -a 10 |
 | -s k | (build) shuffle flag, k = 0,1,2,3.  | -s 2 |
 |        | Randomizes build orders to reduce sensitivity to other machine load ||
 | -g | get benchmarks, but do not build or run | |
@@ -59,6 +64,8 @@ A sample benchmark entry:
   Repo = "gonum.org/v1/gonum/graph/topo/"
   Tests = "Test"
   Benchmarks = "Benchmark(TarjanSCCGnp_1000_half|TarjanSCCGnp_10_tenth)"
+  BuildFlags = ["-tags", "purego"]
+  RunWrapper = ["tmpclr"] # this benchmark leaves messes
   # NotSandboxed = true # uncomment if cannot be run in a Docker container
   # Disabled = true # uncomment to disable benchmark
 ```
@@ -68,14 +75,16 @@ regular expressions for `go test` specifying which tests or benchmarks to run.
 A sample configuration entry with all the options supplied:
 ```
 [[Configurations]]
-  Name = "Resched"
-  Root = "$HOME/GoogleDrive/work/go/"
+  Name = "Go-preempt"
+  Root = "$HOME/work/go/"
  # Optional flags below
-  GcFlags = "-d=ssa/insert_resched_checks/off"
+  BuildFlags = ["-gccgoflags=all=-O3 -static-libgo","-tags=noasm"] # for Gollvm
+  AfterBuild = ["benchsize", "benchdwarf"]
+  GcFlags = "-d=ssa/insert_resched_checks/on"
   GcEnv = ["GOMAXPROCS=1","GOGC=200"]
   RunFlags = ["-test.short"]
-  RunEnv = ["GOGC=100"]
-  RunWrapper = ["foo"]
+  RunEnv = ["GOGC=1000"]
+  RunWrapper = ["cpuprofile"]
   Disabled = false
 ```
 The `Gc...` attributes apply to the test or benchmark compilation, the `Run...` attributes apply to the test or benchmark run.
@@ -88,6 +97,11 @@ pf="${BENT_BINARY}_${BENT_I}.prof"
 "$@" -test.cpuprofile="$pf"
 echo cpuprofile in `pwd`/"$mf"
 go tool pprof -text -flat -nodecount=20 "$pf"
+```
+
+When both configuration and benchmark wrappers the comfiguration wrapper runs the benchmark wrapper runs the actual benchmark, i.e.
+```
+ConfigWrapper ConfigArg BenchWrapper BenchArg ActualBenchmark
 ```
 
 The `Disabled` attribute for both benchmarks and configurations removes them from normal use, but leaves them accessible to explicit request with `-b` or `-c`.
