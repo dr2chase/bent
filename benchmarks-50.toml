@@ -285,7 +285,7 @@
   Name = "rcrowley_metrics"
   Repo = "github.com/rcrowley/go-metrics"
   Tests = "Test"
-  Benchmarks = "(BenchmarkCompute1000000|BenchmarkMetrics)"
+  Benchmarks = "(BenchmarkCompute1000000)" # BenchmarkMetrics is very noisy
 
 [[Benchmarks]]
   Name = "aws_jsonutil"
