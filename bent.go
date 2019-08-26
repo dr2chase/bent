@@ -105,7 +105,7 @@ var runstamp = strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:
 
 func main() {
 
-	var benchmarksString, configurationsString string
+	var benchmarksString, configurationsString, stampLog string
 
 	flag.IntVar(&N, "N", N, "benchmark/test repeat count")
 
@@ -123,6 +123,8 @@ func main() {
 
 	flag.BoolVar(&getOnly, "g", getOnly, "get tests/benchmarks and dependencies, do not build or run")
 	flag.StringVar(&runContainer, "r", runContainer, "skip get and build, go directly to run, using specified container (any non-empty string will do for unsandboxed execution)")
+
+	flag.StringVar(&stampLog, "L", stampLog, "name of log file to which runstamps are appended")
 
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
 	flag.BoolVar(&initialize, "I", initialize, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
@@ -398,6 +400,16 @@ ADD . /
 			fmt.Printf("   %s\n", s)
 		}
 		return
+	}
+
+	if stampLog != "" {
+		f, err := os.OpenFile(stampLog, os.O_WRONLY|os.O_APPEND|os.O_CREATE, os.ModePerm)
+		if err != nil {
+			fmt.Printf("There was an error opening %s for output, error %v\n", stampLog, err)
+			os.Exit(2)
+		}
+		fmt.Fprintf(f, "%s\t%v\n", runstamp, os.Args)
+		f.Close()
 	}
 
 	defaultEnv = inheritEnv(defaultEnv, "PATH")
@@ -884,6 +896,8 @@ func (config *Configuration) createFilesForLater() {
 		fmt.Println("Error creating build benchmark file ", config.buildBenchName(), ", err=", err)
 		config.Disabled = true
 	} else {
+		fmt.Fprintf(f, "goos: %s\n", runtime.GOOS)
+		fmt.Fprintf(f, "goarch: %s\n", runtime.GOARCH)
 		f.Close() // will be appending later
 	}
 
