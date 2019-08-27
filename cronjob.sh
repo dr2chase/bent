@@ -53,7 +53,7 @@ cd "${ROOT}"/${BASE}
 base=`git log -n 1 --format='%h'`
 
 cd "${ROOT}"
-perflock bent -U -v -N=${N} -a=${B} -L=bentjobs.log "$@"
+perflock bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cronjob.toml "$@"
 RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 
 cd bench
