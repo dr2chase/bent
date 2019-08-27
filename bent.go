@@ -808,7 +808,12 @@ ADD . /
 					wrappersAndBin = append(wrappersAndBin, bin)
 
 					cmd := exec.Command(wrappersAndBin[0], wrappersAndBin[1:]...)
-					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					if b.Tests != "none" {
+						cmd.Args = append(cmd.Args, "-test.run="+b.Tests)
+					}
+					if b.Benchmarks != "none" {
+						cmd.Args = append(cmd.Args, "-test.bench="+b.Benchmarks)
+					}
 
 					cmd.Dir = testdir
 					cmd.Env = defaultEnv
@@ -836,7 +841,12 @@ ADD . /
 					cmd.Args = append(cmd.Args, "-e", "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, container)
 					cmd.Args = append(cmd.Args, wrappersAndBin...)
-					cmd.Args = append(cmd.Args, "-test.run="+b.Tests, "-test.bench="+b.Benchmarks)
+					if b.Tests != "none" {
+						cmd.Args = append(cmd.Args, "-test.run="+b.Tests)
+					}
+					if b.Benchmarks != "none" {
+						cmd.Args = append(cmd.Args, "-test.bench="+b.Benchmarks)
+					}
 					cmd.Args = append(cmd.Args, config.RunFlags...)
 					cmd.Args = append(cmd.Args, moreArgs...)
 					s, rc = todo.Configurations[j].runBinary(cwd, cmd, false)

@@ -59,3 +59,5 @@ if [ ${bench} = "yes" ] ; then
 		# echo "Benchmark${2}_dwarf_stmt_goodness_kind" 1 ${stmtkindquality} stmts-quality
 	fi
 fi
+
+rm "$tmp"
