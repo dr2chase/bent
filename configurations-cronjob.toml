@@ -1,0 +1,9 @@
+[[Configurations]]
+  Name = "Base"
+  Root = "$ROOT/${BASE}"
+  AfterBuild = [ "benchsize", "benchdwarf" ]
+
+[[Configurations]]
+  Name = "Tip"
+  Root = "$ROOT/go-tip/"
+  AfterBuild = [ "benchsize", "benchdwarf" ]

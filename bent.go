@@ -83,12 +83,12 @@ var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating fla
 var shuffle = 2       // Dimensionality of (build) shuffling; 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.
 
 var copyExes = []string{
-	"foo", "memprofile", "cpuprofile", "tmpclr", "benchsize", "benchdwarf",
+	"foo", "memprofile", "cpuprofile", "tmpclr", "benchsize", "benchdwarf", "cronjob.sh",
 }
 
 var copyConfigs = []string{
 	"benchmarks-all.toml", "benchmarks-50.toml", "benchmarks-gc.toml", "benchmarks-gcplus.toml", "benchmarks-trial.toml",
-	"configurations-sample.toml", "configurations-gollvm.toml",
+	"configurations-sample.toml", "configurations-gollvm.toml", "configurations-cronjob.toml",
 }
 
 var defaultEnv []string
@@ -1054,7 +1054,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	// Report and record build stats to testbin
 
 	buf := new(bytes.Buffer)
-	s := fmt.Sprintf("Benchmark%s 1 %d real-ns/op %d user-ns/op %d sys-ns/op\n",
+	s := fmt.Sprintf("Benchmark%s 1 %d build-real-ns/op %d build-user-ns/op %d build-sys-ns/op\n",
 		strings.Title(bench.Name), rbt, ubt, sbt)
 	if verbose > 0 {
 		fmt.Print(s)

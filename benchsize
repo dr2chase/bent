@@ -19,16 +19,16 @@ zdebug_pubname=`grep zdebug_pubname $tmp | awk '{print $2}'`
 
 echo "goos: $GOOS"
 echo "goarch: $GOARCH"
-echo "Benchmark${2}_total" 1 ${total} totalBytes
-echo "Benchmark${2}_text" 1 ${text} textBytes
-echo "Benchmark${2}_data" 1 ${data} dataBytes
-echo "Benchmark${2}_rodata" 1 ${rodata} roDataBytes
-echo "Benchmark${2}_pclntab" 1 ${gopclntab} pclntabBytes
+echo "Benchmark${2}_total" 1 ${total} total-bytes
+echo "Benchmark${2}_text" 1 ${text} text-bytes
+echo "Benchmark${2}_data" 1 ${data} data-bytes
+echo "Benchmark${2}_rodata" 1 ${rodata} rodata-bytes
+echo "Benchmark${2}_pclntab" 1 ${gopclntab} pclntab-bytes
 
 
 zdebug=`expr ${zdebug_info} + ${zdebug_loc} + ${zdebug_line} + ${zdebug_ranges} + ${zdebug_frame} + ${zdebug_pubtype} + ${zdebug_pubname}`
 
-echo "Benchmark${2}_zdebug_total" 1 ${zdebug} zdebugBytes
+echo "Benchmark${2}_zdebug_total" 1 ${zdebug} zdebug-bytes
 
 # echo "Benchmark${2}_zdebug_info" 1 ${zdebug_info} zdebugbytes
 # echo "Benchmark${2}_zdebug_loc" 1 ${zdebug_loc} zdebugbytes

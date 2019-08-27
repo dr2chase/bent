@@ -49,15 +49,13 @@ if [ ${bench} = "yes" ] ; then
 	echo "goos: $GOOS"
 	echo "goarch: $GOARCH"
 	if [ "x$x" != "x" ] ; then 
-		echo "Benchmark${2}_dwarf_input_goodness" 1 ${inputsquality} inputs_quality
+		echo "Benchmark${2}_dwarf_input_goodness" 1 ${inputsquality} inputs-quality
 	fi
 	if [ "x$y" != "x" ] ; then 
-		echo "Benchmark${2}_dwarf_args_goodness" 1 ${argsquality} args_quality
+		echo "Benchmark${2}_dwarf_args_goodness" 1 ${argsquality} args-quality
 	fi
 	if [ "x$z" != "x" ] ; then 
-		echo "Benchmark${2}_dwarf_stmt_goodness" 1 ${stmtquality} stmts_quality
-		echo "Benchmark${2}_dwarf_stmt_goodness_kind" 1 ${stmtkindquality} stmts_quality
+		echo "Benchmark${2}_dwarf_stmt_goodness" 1 ${stmtquality} stmts-quality
+		# echo "Benchmark${2}_dwarf_stmt_goodness_kind" 1 ${stmtkindquality} stmts-quality
 	fi
 fi
-
-rm $tmp
