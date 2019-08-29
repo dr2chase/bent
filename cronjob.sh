@@ -63,7 +63,11 @@ echo "bentstamp: ${RUN}" >> "${STAMP}"
 echo "tip: ${tip}" >> "${STAMP}"
 echo "base: ${base}" >> "${STAMP}"
 
-cat ${RUN}.Base.{build,stdout,benchsize,benchdwarf} > ${BASE}
-cat ${RUN}.Tip.{build,stdout,benchsize,benchdwarf} > ${tip}
+cat ${RUN}.Base.build > ${BASE}
+cat ${RUN}.Tip.build > ${tip}
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Base.stdout > ${BASE}
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Tip.stdout > ${tip}
+cat ${RUN}.Base.{benchsize,benchdwarf} > ${BASE}
+cat ${RUN}.Tip.{benchsize,benchdwarf} > ${tip}
 benchsave -header "${STAMP}" ${BASE} ${tip}
 rm "${STAMP}"

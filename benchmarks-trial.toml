@@ -4,14 +4,12 @@
   Name = "uber_zap"
   # Repo = "github.com/uber-go/zap/benchmarks"
   Repo = "go.uber.org/zap/benchmarks"
-  Tests = "Test"
   Benchmarks = "Benchmark"
   Disabled = true # Not building today
 
 [[Benchmarks]]
   Name = "bindata"
   Repo = "github.com/kevinburke/go-bindata"
-  Tests = "Test"
   Benchmarks = "Benchmark"
 
 # A noise-checking recent run (used to move some tests into benchmarks-50.toml)

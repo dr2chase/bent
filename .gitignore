@@ -4,6 +4,7 @@
 Dockerfile
 bent
 *.log
+*.txt
 *.prof
 *.mprof
 src/
