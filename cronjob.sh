@@ -59,15 +59,16 @@ RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 cd bench
 STAMP="stamp-$$"
 export STAMP
+echo "suite: bent-cron" >> ${STAMP}
 echo "bentstamp: ${RUN}" >> "${STAMP}"
 echo "tip: ${tip}" >> "${STAMP}"
 echo "base: ${base}" >> "${STAMP}"
 
 cat ${RUN}.Base.build > ${BASE}
 cat ${RUN}.Tip.build > ${tip}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Base.stdout > ${BASE}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Tip.stdout > ${tip}
-cat ${RUN}.Base.{benchsize,benchdwarf} > ${BASE}
-cat ${RUN}.Tip.{benchsize,benchdwarf} > ${tip}
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Base.stdout >> ${BASE}
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Tip.stdout >> ${tip}
+cat ${RUN}.Base.{benchsize,benchdwarf} >> ${BASE}
+cat ${RUN}.Tip.{benchsize,benchdwarf} >> ${tip}
 benchsave -header "${STAMP}" ${BASE} ${tip}
 rm "${STAMP}"
