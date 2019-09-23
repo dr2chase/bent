@@ -96,7 +96,7 @@
 [[Benchmarks]]
   Name = "ethereum_trie"
   Repo = "github.com/ethereum/go-ethereum/trie"
-  Benchmarks = "Benchmark" # Prove and VerifyProof are noisy
+  Benchmarks = "Benchmark[HCKGU]" # Prove and VerifyProof are noisy
   NotSandboxed = true # Won't cross-compile to Linux on MacOS
 
 [[Benchmarks]]
@@ -233,7 +233,7 @@
 [[Benchmarks]]
   Name = "dustin_broadcast"
   Repo = "github.com/dustin/go-broadcast"
-  Benchmarks = "Benchmark"
+  Benchmarks = "Benchmark[^B]" #Brodcast is noisy
 
 [[Benchmarks]]
   Name = "dustin_humanize"
