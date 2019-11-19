@@ -1,0 +1,9 @@
+[[Configurations]]
+  Name = "Old"
+  Root = "$ROOT/go-old"
+  AfterBuild = [ "benchsize", "benchdwarf" ]
+
+[[Configurations]]
+  Name = "New"
+  Root = "$ROOT/go-new"
+  AfterBuild = [ "benchsize", "benchdwarf" ]

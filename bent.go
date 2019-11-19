@@ -88,7 +88,7 @@ var copyExes = []string{
 
 var copyConfigs = []string{
 	"benchmarks-all.toml", "benchmarks-50.toml", "benchmarks-gc.toml", "benchmarks-gcplus.toml", "benchmarks-trial.toml",
-	"configurations-sample.toml", "configurations-gollvm.toml", "configurations-cronjob.toml",
+	"configurations-sample.toml", "configurations-gollvm.toml", "configurations-cronjob.toml", "configurations-cmpjob.toml",
 }
 
 var defaultEnv []string
