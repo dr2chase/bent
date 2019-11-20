@@ -21,7 +21,7 @@ shift
 newtag="$1"
 shift
 
-ROOT="${HOME}/work/bent-cron"
+ROOT=`pwd`
 export ROOT oldtag newtag
 
 # N is number of benchmarks, B is number of builds

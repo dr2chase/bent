@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-ROOT="${HOME}/work/bent-cron"
+ROOT=`pwd`
 export ROOT
 
 # BASE is the baseline, defined here, assumed checked out and built.

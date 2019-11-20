@@ -15,7 +15,7 @@ fi
 cl="$1"
 shift
 
-ROOT="${HOME}/work/bent-cron"
+ROOT=`pwd`
 export ROOT cl
 
 # N is number of benchmarks, B is number of builds
