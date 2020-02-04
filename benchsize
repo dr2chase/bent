@@ -19,6 +19,7 @@ zdebug_pubname=`grep zdebug_pubname $tmp | awk '{print $2}'`
 
 echo "goos: $GOOS"
 echo "goarch: $GOARCH"
+echo "pkg:" # Erase any inherited pkg if files are concatenated
 echo "Benchmark${2}_total" 1 ${total} total-bytes
 echo "Benchmark${2}_text" 1 ${text} text-bytes
 echo "Benchmark${2}_data" 1 ${data} data-bytes

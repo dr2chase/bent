@@ -48,6 +48,7 @@ fi
 if [ ${bench} = "yes" ] ; then
 	echo "goos: $GOOS"
 	echo "goarch: $GOARCH"
+	echo "pkg:" # Erase any inherited pkg if files are concatenated
 	if [ "x$x" != "x" ] ; then 
 		echo "Benchmark${2}_dwarf_input_goodness" 1 ${inputsquality} inputs-quality
 	fi
@@ -60,4 +61,4 @@ if [ ${bench} = "yes" ] ; then
 	fi
 fi
 
-rm "$tmp"
+rm $tmp

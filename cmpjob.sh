@@ -81,7 +81,7 @@ RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 cd bench
 STAMP="stamp-$$"
 export STAMP
-echo "suite: bent-cmp" >> ${STAMP}
+echo "suite: bent-cmp-branch" >> ${STAMP}
 echo "bentstamp: ${RUN}" >> "${STAMP}"
 echo "oldtag: ${oldtag}" >> "${STAMP}"
 echo "newtag: ${newtag}" >> "${STAMP}"
