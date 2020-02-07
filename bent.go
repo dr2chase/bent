@@ -83,7 +83,7 @@ var explicitAll = 0   // Include "-a" on "go test -c" test build ; repeating fla
 var shuffle = 2       // Dimensionality of (build) shuffling; 0 = none, 1 = per-benchmark, configuration ordering, 2 = bench, config pairs, 3 = across repetitions.
 
 var copyExes = []string{
-	"foo", "memprofile", "cpuprofile", "tmpclr", "benchsize", "benchdwarf", "cronjob.sh", "cmpjob.sh", "cmpcl.sh",
+	"foo", "memprofile", "cpuprofile", "tmpclr", "benchtime", "benchsize", "benchdwarf", "cronjob.sh", "cmpjob.sh", "cmpcl.sh",
 }
 
 var copyConfigs = []string{

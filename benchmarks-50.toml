@@ -3,6 +3,13 @@
 # that appear to be somewhat diverse.
 
 [[Benchmarks]]
+  Name = "klauspost"
+  Repo = "github.com/dr2chase/benchmarks/klauspost"
+  Tests = "" # Don't run these tests; they hang, etc.
+  Benchmarks = "Benchmark"
+#  Runwrapper = ["benchtime", "10000000x"]
+
+[[Benchmarks]]
   Name = "minio"
   Repo = "github.com/minio/minio/cmd"
   Tests = "none" # Don't run these tests; they hang, etc.
