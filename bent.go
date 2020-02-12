@@ -1023,17 +1023,23 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 
 	cleanup := func() {
 		if verbose > 0 {
-			fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
+			fmt.Printf("chmod -R u+w %s\n", gopath + "/pkg")
 		}
 		// Necessary to make directories writeable with new module stuff.
 		filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
 			if path != "" && info != nil {
 				if mode := info.Mode(); 0 == mode&os.ModeSymlink {
-					os.Chmod(path, (0700|mode)&os.ModePerm)
+					err := os.Chmod(path, 0200|mode)
+					if err != nil {
+						panic(err)
+					}
 				}
 			}
 			return nil
 		})
+		if verbose > 0 {
+			fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
+		}
 		os.RemoveAll(gopath + "/pkg")
 		os.RemoveAll(gopath + "/bin")
 	}
