@@ -1090,6 +1090,14 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	// Report and record build stats to testbin
 
 	buf := new(bytes.Buffer)
+	configGoArch := getenv(config.GcEnv, "GOARCH")
+	if configGoArch != runtime.GOARCH {
+		s := fmt.Sprintf("goarch: %s-%s\n", runtime.GOARCH, configGoArch)
+		if verbose > 0 {
+			fmt.Print(s)
+		}
+		buf.WriteString(s)
+	}
 	s := fmt.Sprintf("Benchmark%s 1 %d build-real-ns/op %d build-user-ns/op %d build-sys-ns/op\n",
 		strings.Title(bench.Name), rbt, ubt, sbt)
 	if verbose > 0 {
@@ -1305,6 +1313,16 @@ func inheritEnv(env []string, ev string) []string {
 		env = append(env, ev+"="+evv)
 	}
 	return env
+}
+
+func getenv(env []string, ev string) string {
+	evplus := ev + "="
+	for _, v := range env {
+		if strings.HasPrefix(v, evplus) {
+			return v[len(evplus):]
+		}
+	}
+	return ""
 }
 
 // replaceEnv returns a new environment derived from env
