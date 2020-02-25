@@ -295,9 +295,19 @@ ADD . /
 	// Normalize configuration goroot names by ensuring they end in '/'
 	// Process command-line-specified configurations.
 	// Expand environment variables mentioned there.
+	duplicates := make(map[string]bool)
 	for i, trial := range todo.Configurations {
 		trial.Name = os.ExpandEnv(trial.Name)
 		todo.Configurations[i].Name = trial.Name
+		if duplicates[trial.Name] {
+			if trial.Name == todo.Configurations[i].Name {
+				fmt.Printf("Saw duplicate configuration %s at index %d\n", trial.Name, i)
+			} else {
+				fmt.Printf("Saw duplicate configuration %s (originally %s) at index %d\n", trial.Name, todo.Configurations[i].Name, i)
+			}
+			os.Exit(1)
+		}
+		duplicates[trial.Name] = true
 		if configurations != nil {
 			_, present := configurations[trial.Name]
 			todo.Configurations[i].Disabled = !present
@@ -330,7 +340,15 @@ ADD . /
 	// Normalize benchmark names by removing any trailing '/'.
 	// Normalize Test and Benchmark specs by replacing missing value with something that won't match anything.
 	// Process command-line-specified benchmarks
+	duplicates = make(map[string]bool)
 	for i, bench := range todo.Benchmarks {
+
+		if duplicates[bench.Name] {
+			fmt.Printf("Saw duplicate benchmark %s at index %d\n", bench.Name, i)
+			os.Exit(1)
+		}
+		duplicates[bench.Name] = true
+
 		if benchmarks != nil {
 			_, present := benchmarks[bench.Name]
 			todo.Benchmarks[i].Disabled = !present
@@ -950,6 +968,8 @@ func (config *Configuration) runOtherBenchmarks(b *Benchmark, cwd string) {
 		if !b.NotSandboxed {
 			c.Env = replaceEnv(c.Env, "GOOS", "linux")
 		}
+		// Match the build environment here.
+		c.Env = replaceEnvs(c.Env, config.GcEnv)
 
 		if verbose > 0 {
 			fmt.Println(asCommandLine(cwd, c))
