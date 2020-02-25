@@ -578,7 +578,7 @@ ADD . /
 				if rootCopy != "" {
 					cmd.Env = replaceEnv(cmd.Env, "GOROOT", rootCopy)
 				}
-				cmd.Env = append(cmd.Env, config.GcEnv...)
+				cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 
 				s, _ := config.runBinary("", cmd, true)
 				if s != "" {
@@ -824,7 +824,7 @@ ADD . /
 					if root != "" {
 						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 					}
-					cmd.Env = append(cmd.Env, config.RunEnv...)
+					cmd.Env = replaceEnvs(cmd.Env, config.RunEnv)
 					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
 					cmd.Env = append(cmd.Env, "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, config.RunFlags...)
@@ -984,7 +984,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 		if root != "" {
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
-		cmd.Env = append(cmd.Env, config.GcEnv...)
+		cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
 		s, _ := config.runBinary("", cmd, true)
 		if s != "" {
@@ -1013,7 +1013,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	if root != "" {
 		cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 	}
-	cmd.Env = append(cmd.Env, config.GcEnv...)
+	cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 
 	if verbose > 0 {
 		fmt.Println(asCommandLine(cwd, cmd))
@@ -1023,7 +1023,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 
 	cleanup := func() {
 		if verbose > 0 {
-			fmt.Printf("chmod -R u+w %s\n", gopath + "/pkg")
+			fmt.Printf("chmod -R u+w %s\n", gopath+"/pkg")
 		}
 		// Necessary to make directories writeable with new module stuff.
 		filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
@@ -1299,6 +1299,26 @@ func replaceEnv(env []string, ev string, evv string) []string {
 	}
 	newenv = append(newenv, evplus+evv)
 	return newenv
+}
+
+// replaceEnv returns a new environment derived from env
+// by removing any existing definition of ev and adding ev=evv.
+func replaceEnvs(env, newevs []string) []string {
+	for _, e := range newevs {
+		var newenv []string
+		eq := strings.IndexByte(e, '=')
+		if eq == -1 {
+			panic("Bad input to replaceEnvs, ought to be slice of e=v")
+		}
+		evplus := e[0 : eq+1]
+		for _, v := range env {
+			if !strings.HasPrefix(v, evplus) {
+				newenv = append(newenv, v)
+			}
+		}
+		env = append(newenv, e)
+	}
+	return env
 }
 
 // ifMissingAddEnv returns a new environment derived from env
