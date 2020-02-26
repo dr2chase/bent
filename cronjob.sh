@@ -1,12 +1,15 @@
 #!/bin/bash -x
 
-perflock echo "Gratuitous perflock to prevent this script from starting if something else is still in progress"
+# perflock is not always available
+PERFLOCK=`which perflock`
+
+${PERFLOCK} echo "Gratuitous perflock to prevent this script from starting if something else is still in progress"
 
 ROOT="${HOME}/work/bent-cron"
 export ROOT
 
 # BASE is the baseline, defined here, assumed checked out and built.
-BASE=Go1.13
+BASE=Go1.14
 export BASE
 
 # N is number of benchmarks, B is number of builds
@@ -26,14 +29,14 @@ cd "${ROOT}"
 
 if [ ! -e "${BASE}" ] ; then
 	echo Missing expected baseline directory "${BASE}" in "${ROOT}", attempting to checkout and build.
-	base=${BASE,G}
-	perflock git clone https://go.googlesource.com/go -b release-branch.${base} ${BASE}
+	base=`echo $BASE | tr G g`
+	${PERFLOCK} git clone https://go.googlesource.com/go -b release-branch.${base} ${BASE}
 	if [ $? != 0 ] ; then
 		echo git clone https://go.googlesource.com/go -b release-branch.${base} ${BASE} FAILED
 		exit 1
 	fi
 	cd ${BASE}/src
-	perflock ./make.bash
+	${PERFLOCK} ./make.bash
 	if [ $? != 0 ] ; then
 		echo BASE make.bash FAILED
 		exit 1
@@ -43,15 +46,15 @@ fi
 
 # Refresh tip, get revision
 if [ -e go-tip ] ; then
-	perflock rm -rf go-tip
+	${PERFLOCK} rm -rf go-tip
 fi
-perflock git clone https://go.googlesource.com/go go-tip
+${PERFLOCK} git clone https://go.googlesource.com/go go-tip
 if [ $? != 0 ] ; then
 	echo git clone go-tip failed
 	exit 1
 fi
 cd go-tip/src
-perflock ./make.bash
+${PERFLOCK} ./make.bash
 if [ $? != 0 ] ; then
 	echo make.bash failed
 	exit 1
@@ -65,7 +68,7 @@ base=`git log -n 1 --format='%h'`
 # Optimized build and benchmark
 
 cd "${ROOT}"
-perflock bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cronjob.toml -c Base,Tip "$@"
+${PERFLOCK} bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cronjob.toml -c Base,Tip "$@"
 RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 
 cd bench
@@ -93,7 +96,7 @@ rm "${STAMP}"
 # Debugging build 
 
 cd "${ROOT}"
-perflock bent -U -v -N=${NNl} -a=${BNl} -L=bentjobsNl.log -C=configurations-cronjob.toml -c BaseNl,TipNl "$@"
+${PERFLOCK} bent -U -v -N=${NNl} -a=${BNl} -L=bentjobsNl.log -C=configurations-cronjob.toml -c BaseNl,TipNl "$@"
 RUN=`tail -1 bentjobsNl.log | awk -c '{print $1}'`
 
 cd bench
@@ -121,7 +124,7 @@ rm "${STAMP}"
 # No-inline build 
 
 cd "${ROOT}"
-perflock bent -U -v -N=${Nl} -a=${Bl} -L=bentjobsl.log -C=configurations-cronjob.toml -c Basel,Tipl "$@"
+${PERFLOCK} bent -U -v -N=${Nl} -a=${Bl} -L=bentjobsl.log -C=configurations-cronjob.toml -c Basel,Tipl "$@"
 RUN=`tail -1 bentjobsl.log | awk -c '{print $1}'`
 
 cd bench
