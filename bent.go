@@ -329,6 +329,13 @@ ADD . /
 		for j, s := range trial.RunEnv {
 			trial.RunEnv[j] = os.ExpandEnv(s)
 		}
+		todo.Configurations[i].GcFlags = os.ExpandEnv(trial.GcFlags)
+		for j, s := range trial.RunFlags {
+			trial.RunFlags[j] = os.ExpandEnv(s)
+		}
+		for j, s := range trial.RunWrapper {
+			trial.RunWrapper[j] = os.ExpandEnv(s)
+		}
 	}
 	for b, v := range configurations {
 		if v {
@@ -797,34 +804,38 @@ ADD . /
 				}
 
 				root := config.Root
-				configWrapper := ""
-				if len(config.RunWrapper) > 0 {
-					// Prepend slash, for now it runs from root of container or cwd + configWrapper if not sandboxed.
-					configWrapper = "/" + config.RunWrapper[0]
+
+				wrapperPrefix := "/"
+				if b.NotSandboxed {
+					wrapperPrefix = cwd + "/"
+				}
+				wrapperFor := func(s []string) string {
+					x := ""
+					if len(s) > 0  {
+						// If not an explicit path, then make it an explicit path
+						x = s[0]
+						if x[0] != '/' {
+							x = wrapperPrefix + x
+						}
+					}
+					return x
 				}
 
-				benchWrapper := ""
-				if len(b.RunWrapper) > 0 {
-					// Prepend slash, for now it runs from root of container or cwd + benchWrapper if not sandboxed.
-					benchWrapper = "/" + b.RunWrapper[0]
-				}
+				configWrapper := wrapperFor(config.RunWrapper)
+				benchWrapper := wrapperFor(b.RunWrapper)
 
 				testBinaryName := config.benchName(&b)
 				var s string
 				var rc int
 
 				var wrappersAndBin []string
-				var wrapperPrefix string
-				if b.NotSandboxed {
-					wrapperPrefix = cwd
-				}
 
 				if configWrapper != "" {
-					wrappersAndBin = append(wrappersAndBin, wrapperPrefix+configWrapper)
+					wrappersAndBin = append(wrappersAndBin, configWrapper)
 					wrappersAndBin = append(wrappersAndBin, config.RunWrapper[1:]...)
 				}
 				if benchWrapper != "" {
-					wrappersAndBin = append(wrappersAndBin, wrapperPrefix+benchWrapper)
+					wrappersAndBin = append(wrappersAndBin, benchWrapper)
 					wrappersAndBin = append(wrappersAndBin, b.RunWrapper[1:]...)
 				}
 
@@ -843,6 +854,7 @@ ADD . /
 						cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 					}
 					cmd.Env = replaceEnvs(cmd.Env, config.RunEnv)
+					cmd.Env = append(cmd.Env, "BENT_DIR="+cwd)
 					cmd.Env = append(cmd.Env, "BENT_BINARY="+testBinaryName)
 					cmd.Env = append(cmd.Env, "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, config.RunFlags...)
@@ -859,6 +871,7 @@ ADD . /
 					for _, e := range config.RunEnv {
 						cmd.Args = append(cmd.Args, "-e", e)
 					}
+					cmd.Args = append(cmd.Args, "-e", "BENT_DIR=/") // TODO this is not going to work well
 					cmd.Args = append(cmd.Args, "-e", "BENT_BINARY="+testBinaryName)
 					cmd.Args = append(cmd.Args, "-e", "BENT_I="+strconv.FormatInt(int64(i), 10))
 					cmd.Args = append(cmd.Args, container)
@@ -1091,7 +1104,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 
 	buf := new(bytes.Buffer)
 	configGoArch := getenv(config.GcEnv, "GOARCH")
-	if configGoArch != runtime.GOARCH {
+	if configGoArch != runtime.GOARCH && configGoArch != "" {
 		s := fmt.Sprintf("goarch: %s-%s\n", runtime.GOARCH, configGoArch)
 		if verbose > 0 {
 			fmt.Print(s)
