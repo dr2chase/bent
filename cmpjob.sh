@@ -29,8 +29,8 @@ PERFLOCK=`which perflock`
 
 # N is number of benchmarks, B is number of builds
 # Can override these with -N= and -a= on command line.
-N=25
-B=25
+N=15
+B=1
 
 cd "${ROOT}"
 
