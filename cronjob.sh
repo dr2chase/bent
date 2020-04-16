@@ -68,6 +68,8 @@ base=`git log -n 1 --format='%h'`
 # Optimized build and benchmark
 
 cd "${ROOT}"
+# For arm64 big.little, might need to prefix with something like:
+# GOMAXPROCS=4 numactl -C 2-5 -- ...
 ${PERFLOCK} bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cronjob.toml -c Base,Tip "$@"
 RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 
@@ -92,6 +94,14 @@ cat ${RUN}.Base.{benchsize,benchdwarf} >> ${BASE}-opt.${SFX}
 cat ${RUN}.Tip.{benchsize,benchdwarf} >> ${tip}-opt.${SFX}
 benchsave ${BASE}-opt.${SFX} ${tip}-opt.${SFX}
 rm "${STAMP}"
+
+cd ${ROOT}
+# The following depends on some other infrastructure, see:
+#     github/com/dr2chase/go-bench-tweet-bot 
+#     https://go-review.googlesource.com/c/perf/+/218923 (benchseries)
+if [ -e ./tweet-results ] ; then
+	./tweet-results "${RUN}"
+fi
 
 # Debugging build 
 

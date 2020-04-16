@@ -24,6 +24,9 @@ shift
 ROOT=`pwd`
 export ROOT oldtag newtag
 
+# perflock is not always available
+PERFLOCK=`which perflock`
+
 # N is number of benchmarks, B is number of builds
 # Can override these with -N= and -a= on command line.
 N=25
@@ -75,7 +78,7 @@ if [ $? != 0 ] ; then
 fi
 
 cd "${ROOT}"
-perflock bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cmpjob.toml "$@"
+${PERFLOCK} bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cmpjob.toml "$@"
 RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 
 cd bench

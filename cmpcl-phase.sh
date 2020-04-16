@@ -1,5 +1,7 @@
 #!/bin/bash -x
 
+# Variant of cmpcl.sh for comparing SSA phase timings for a CL and its immediate predecessor.
+
 # git fetch "https://go.googlesource.com/go" refs/changes/61/196661/3 && git checkout FETCH_HEAD
 
 if [ $# -lt 1 ] ; then
@@ -23,8 +25,8 @@ PERFLOCK=`which perflock`
 
 # N is number of benchmarks, B is number of builds
 # Can override these with -N= and -a= on command line.
-N=25
-B=25
+N=0
+B=1
 
 cd "${ROOT}"
 
@@ -87,26 +89,10 @@ fi
 newtag=`git log -n 1 --format='%h'`
 export newtag
 
-cd "${ROOT}"
-${PERFLOCK} bent -U -v -N=${N} -a=${B} -L=bentjobs.log -C=configurations-cmpjob.toml "$@"
-RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
-
-cd bench
-STAMP="stamp-$$"
+STAMP="$$"
 export STAMP
-echo "suite: bent-cmp-cl" >> ${STAMP}
-echo "bentstamp: ${RUN}" >> "${STAMP}"
-echo "oldtag: ${oldtag}" >> "${STAMP}"
-echo "newtag: ${newtag}" >> "${STAMP}"
 
-oldlog="old-${oldtag}"
-newlog="new-${newtag}"
+cd "${ROOT}"
+${PERFLOCK} bent -U -v -N=${N} -a=${B} -L=bentjobs.log -c=Old-phase,New-phase -C=configurations-cmpjob.toml "$@" | tee phases.${STAMP}.log
+phase-times > phases.${STAMP}.csv
 
-cat ${RUN}.Old.build > ${oldlog}
-cat ${RUN}.New.build > ${newlog}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Old.stdout >> ${oldlog}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.New.stdout >> ${newlog}
-cat ${RUN}.Old.{benchsize,benchdwarf} >> ${oldlog}
-cat ${RUN}.New.{benchsize,benchdwarf} >> ${newlog}
-benchsave -header "${STAMP}" "${oldlog}" "${newlog}"
-rm "${STAMP}"
