@@ -32,21 +32,24 @@ PERFLOCK=`which perflock`
 N=15
 B=1
 
+REPO="https://go.googlesource.com/go"
+
 cd "${ROOT}"
 
 if [ -e go-old ] ; then
 	rm -rf go-old
 fi
 
-git clone https://go.googlesource.com/go go-old
-if [ $? != 0 ] ; then
-	echo git clone https://go.googlesource.com/go go-old FAILED
+git clone "${REPO}" go-old
+if [ "$?" != "0" ] ; then
+	echo git clone "${REPO}" go-old FAILED
 	exit 1
 fi
 cd go-old/src
-git checkout ${oldtag}
+git fetch "${REPO}" "${oldtag}"
+git checkout "${oldtag}"
 if [ $? != 0 ] ; then
-	echo git checkout ${oldtag} failed
+	echo git checkout "${oldtag}" failed
 	exit 1
 fi
 ./make.bash
@@ -60,15 +63,16 @@ cd "${ROOT}"
 if [ -e go-new ] ; then
 	rm -rf go-new
 fi
-git clone https://go.googlesource.com/go go-new
+git clone "${REPO}" go-new
 if [ $? != 0 ] ; then
 	echo git clone go-new failed
 	exit 1
 fi
 cd go-new/src
-git checkout ${newtag}
+git fetch "${REPO}" "${newtag}"
+git checkout "${newtag}"
 if [ $? != 0 ] ; then
-	echo git checkout ${newtag} failed
+	echo git checkout "${newtag}" failed
 	exit 1
 fi
 ./make.bash
@@ -84,7 +88,7 @@ RUN=`tail -1 bentjobs.log | awk -c '{print $1}'`
 cd bench
 STAMP="stamp-$$"
 export STAMP
-echo "suite: bent-cmp-branch" >> ${STAMP}
+echo "suite: bent-cmp-branch" >> "${STAMP}"
 echo "bentstamp: ${RUN}" >> "${STAMP}"
 echo "oldtag: ${oldtag}" >> "${STAMP}"
 echo "newtag: ${newtag}" >> "${STAMP}"
@@ -92,11 +96,11 @@ echo "newtag: ${newtag}" >> "${STAMP}"
 oldlog="old-${oldtag}"
 newlog="new-${newtag}"
 
-cat ${RUN}.Old.build > ${oldlog}
-cat ${RUN}.New.build > ${newlog}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.Old.stdout >> ${oldlog}
-egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' ${RUN}.New.stdout >> ${newlog}
-cat ${RUN}.Old.{benchsize,benchdwarf} >> ${oldlog}
-cat ${RUN}.New.{benchsize,benchdwarf} >> ${newlog}
+cat "${RUN}.Old.build" > "${oldlog}"
+cat "${RUN}.New.build" > "${newlog}"
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' "${RUN}.Old.stdout" >> "${oldlog}"
+egrep '^(Benchmark|[-_a-zA-Z0-9]+:)' "${RUN}.New.stdout" >> "${newlog}"
+cat "${RUN}.Old.{benchsize,benchdwarf}" >> "${oldlog}"
+cat "${RUN}.New.{benchsize,benchdwarf}" >> "${newlog}"
 benchsave -header "${STAMP}" "${oldlog}" "${newlog}"
 rm "${STAMP}"
