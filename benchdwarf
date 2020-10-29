@@ -6,6 +6,9 @@ z=`which nostmt`
 tmp=tmp-bench-dwarf-$$
 bench=no
 
+# make it exist so it can be removed
+cat /dev/null > $tmp 
+
 # Measures fraction of input variables to lines that are present
 if [ "x$x" = "x" ] ; then
 	echo "Can get dwarf-goodness command with 'go get github.com/dr2chase/dwarf-goodness/cmd/dwarf-goodness'"
