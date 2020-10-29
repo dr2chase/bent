@@ -14,8 +14,13 @@ zdebug_loc=`grep zdebug_loc $tmp | awk '{print $2}'`
 zdebug_line=`grep zdebug_line $tmp | awk '{print $2}'`
 zdebug_ranges=`grep zdebug_ranges $tmp | awk '{print $2}'`
 zdebug_frame=`grep zdebug_frame $tmp | awk '{print $2}'`
-zdebug_pubtype=`grep zdebug_pubtype $tmp | awk '{print $2}'`
+zdebug_abbrev=`grep zdebug_abbrev $tmp | awk '{print $2}'`
 zdebug_pubname=`grep zdebug_pubname $tmp | awk '{print $2}'`
+zdebug_pubtype=`grep zdebug_pubtype $tmp | awk '{print $2}'`
+
+zdebug_abbrev=${zdebug_abbrev:-0}
+zdebug_pubname=${zdebug_pubname:-0}
+zdebug_pubtype=${zdebug_pubtype:-0}
 
 echo "goos: $GOOS"
 echo "goarch: $GOARCH"
@@ -27,7 +32,7 @@ echo "Benchmark${2}_rodata" 1 ${rodata} rodata-bytes
 echo "Benchmark${2}_pclntab" 1 ${gopclntab} pclntab-bytes
 
 
-zdebug=`expr ${zdebug_info} + ${zdebug_loc} + ${zdebug_line} + ${zdebug_ranges} + ${zdebug_frame} + ${zdebug_pubtype} + ${zdebug_pubname}`
+zdebug=`expr ${zdebug_info} + ${zdebug_loc} + ${zdebug_line} + ${zdebug_ranges} + ${zdebug_frame} + ${zdebug_abbrev} + ${zdebug_pubname} + ${zdebug_pubtype}`
 
 echo "Benchmark${2}_zdebug_total" 1 ${zdebug} zdebug-bytes
 
