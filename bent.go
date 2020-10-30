@@ -74,6 +74,7 @@ var N = 1
 var list = false
 var initialize = false
 var test = false
+var force = false
 var noSandbox = false
 var requireSandbox = false
 var getOnly = false
@@ -103,6 +104,29 @@ type triple struct {
 // To disambiguate repeated test runs in the same directory.
 var runstamp = strings.Replace(strings.Replace(time.Now().Format("2006-01-02T15:04:05"), "-", "", -1), ":", "", -1)
 
+func cleanup(gopath string) {
+	if verbose > 0 {
+		fmt.Printf("chmod -R u+w %s\n", gopath+"/pkg")
+	}
+	// Necessary to make directories writeable with new module stuff.
+	filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
+		if path != "" && info != nil {
+			if mode := info.Mode(); 0 == mode&os.ModeSymlink {
+				err := os.Chmod(path, 0200|mode)
+				if err != nil {
+					panic(err)
+				}
+			}
+		}
+		return nil
+	})
+	if verbose > 0 {
+		fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
+	}
+	os.RemoveAll(gopath + "/pkg")
+	os.RemoveAll(gopath + "/bin")
+}
+
 func main() {
 
 	var benchmarksString, configurationsString, stampLog string
@@ -127,6 +151,7 @@ func main() {
 	flag.StringVar(&stampLog, "L", stampLog, "name of log file to which runstamps are appended")
 
 	flag.BoolVar(&list, "l", list, "list available benchmarks and configurations, then exit")
+	flag.BoolVar(&force, "f", force, "force run past some of the consistency checks (gopath/{pkg,bin} in particular)")
 	flag.BoolVar(&initialize, "I", initialize, "initialize a directory for running tests ((re)creates Dockerfile, (re)copies in benchmark and configuration files)")
 	flag.BoolVar(&test, "T", test, "run tests instead of benchmarks")
 
@@ -194,8 +219,12 @@ results will also appear in 'bench'.
 	_, serr := os.Stat("gopath/src") // existence of src prevents initialization of Dockerfile
 
 	if perr == nil || berr == nil {
-		fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, please remove, rename or run in another directory.\n")
-		os.Exit(1)
+		if !force {
+			fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, please remove, rename or run in another directory.\n")
+			os.Exit(1)
+		}
+		fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, but force, so removing.\n")
+		cleanup("gopath")
 	}
 	if derr != nil && !initialize {
 		// Missing Dockerfile
@@ -1054,30 +1083,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 		fmt.Print(".")
 	}
 
-	cleanup := func() {
-		if verbose > 0 {
-			fmt.Printf("chmod -R u+w %s\n", gopath+"/pkg")
-		}
-		// Necessary to make directories writeable with new module stuff.
-		filepath.Walk(gopath+"/pkg", func(path string, info os.FileInfo, err error) error {
-			if path != "" && info != nil {
-				if mode := info.Mode(); 0 == mode&os.ModeSymlink {
-					err := os.Chmod(path, 0200|mode)
-					if err != nil {
-						panic(err)
-					}
-				}
-			}
-			return nil
-		})
-		if verbose > 0 {
-			fmt.Printf("rm -rf %s %s\n", gopath+"/pkg", gopath+"/bin")
-		}
-		os.RemoveAll(gopath + "/pkg")
-		os.RemoveAll(gopath + "/bin")
-	}
-
-	defer cleanup()
+	defer cleanup(gopath)
 
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -1120,7 +1126,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	f, err := os.OpenFile(config.buildBenchName(), os.O_WRONLY|os.O_APPEND, os.ModePerm)
 	if err != nil {
 		fmt.Printf("There was an error opening %s for append, error %v\n", config.buildBenchName(), err)
-		cleanup()
+		cleanup(gopath)
 		os.Exit(2)
 	}
 	f.Write(buf.Bytes())
@@ -1133,7 +1139,7 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	err = os.Rename(from, to)
 	if err != nil {
 		fmt.Printf("There was an error renaming %s to %s, %v\n", from, to, err)
-		cleanup()
+		cleanup(gopath)
 		os.Exit(1)
 	}
 	// Trim /usr/bin/time info from soutput, it's ugly
