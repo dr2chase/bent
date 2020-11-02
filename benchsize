@@ -1,7 +1,16 @@
 #!/bin/bash
 
 tmp=tmp-bench-size-$$
-size -A "$1" > $tmp
+
+x=`which gsize`
+
+if [ "x$x" = "x" ] ; then
+	size -A "$1" > $tmp
+else
+	"$x" -A "$1" > $tmp
+fi
+
+
 
 total=`grep Total $tmp | awk '{print $2}'`
 text=`egrep [^a-z]text[^a-z] $tmp | awk '{print $2}'`
