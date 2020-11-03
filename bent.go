@@ -232,7 +232,7 @@ results will also appear in 'bench'.
 
 	if perr == nil || berr == nil {
 		if !force {
-			fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, please remove, rename or run in another directory.\n")
+			fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, please remove, rename or run in another directory, or use -f to force.\n")
 			os.Exit(1)
 		}
 		fmt.Printf("Building/running tests will trash gopath/pkg and gopath/bin, but force, so removing.\n")
@@ -1119,7 +1119,6 @@ func (config *Configuration) runOtherBenchmarks(b *Benchmark, cwd string) {
 		}
 		// Match the build environment here.
 		c.Env = replaceEnvs(c.Env, b.GcEnv)
-		// fmt.Printf("%s.GcEnv=%v\n", b.Name, b.GcEnv)
 		c.Env = replaceEnvs(c.Env, config.GcEnv)
 
 		if verbose > 0 {
@@ -1156,7 +1155,6 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
 		cmd.Env = replaceEnvs(cmd.Env, bench.GcEnv)
-		// fmt.Printf("%s.GcEnv=%v\n", bench.Name, bench.GcEnv)
 		cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
 		s, _ := config.runBinary("", cmd, true)
@@ -1187,7 +1185,6 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 		cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 	}
 	cmd.Env = replaceEnvs(cmd.Env, bench.GcEnv)
-	// fmt.Printf("%s.GcEnv=%v\n", bench.Name, bench.GcEnv)
 	cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 
 	if verbose > 0 {
