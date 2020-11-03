@@ -7,13 +7,13 @@
   Repo = "github.com/dr2chase/benchmarks/klauspost"
   Tests = "" # Don't run these tests; they hang, etc.
   Benchmarks = "Benchmark"
-#  Runwrapper = ["benchtime", "10000000x"]
 
 [[Benchmarks]]
   Name = "minio"
   Repo = "github.com/minio/minio/cmd"
   Tests = "none" # Don't run these tests; they hang, etc.
   Benchmarks = "BenchmarkGetObject5MbFS" # not Get|Put|List
+  GcEnv = ["GO111MODULE=on"]
 
 [[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
@@ -135,6 +135,7 @@
   Name = "hugo_helpers"
   Repo = "github.com/gohugoio/hugo/helpers"
   Benchmarks = "Benchmark(StripHTML|ReaderContains)"
+  GcEnv = ["GO111MODULE=on"]
 
 [[Benchmarks]]
   Name = "k8s_api"

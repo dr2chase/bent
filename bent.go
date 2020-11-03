@@ -50,6 +50,7 @@ type Benchmark struct {
 	Repo       string   // Repo + subdir where test resides, used for "go get -t -d ..."
 	Tests      string   // Tests to run (regex for -test.run= )
 	Benchmarks string   // Benchmarks to run (regex for -test.bench= )
+	GcEnv      []string // Environment variables supplied to 'go test -c' for building, getting
 	BuildFlags []string // Flags for building test (e.g., -tags purego)
 	RunWrapper []string // (Inner) Command and args to precede whatever the operation is; may fail in the sandbox.
 	// e.g. benchmark may run as ConfigWrapper ConfigArg BenchWrapper BenchArg ActualBenchmark
@@ -60,6 +61,17 @@ type Benchmark struct {
 type Todo struct {
 	Benchmarks     []Benchmark
 	Configurations []Configuration
+}
+
+// The length of the path to the root of the git repo, inclusive.
+// For example, github.com/dr2chase/bent <--- bent is the repo.
+var pathLengths = map[string]int{
+	"github.com":    3,
+	"gitlab.com":    3,
+	"zombiezen.com": 3,
+	"gonum.org":     3,
+	"k8s.io":        2,
+	"go.uber.org":   2,
 }
 
 var verbose int
@@ -392,6 +404,9 @@ ADD . /
 				benchmarks[bench.Name] = false
 			}
 		}
+		for j, s := range bench.GcEnv {
+			bench.GcEnv[j] = os.ExpandEnv(s)
+		}
 		// Trim possible trailing slash, do not want
 		if '/' == bench.Repo[len(bench.Repo)-1] {
 			bench.Repo = bench.Repo[:len(bench.Repo)-1]
@@ -534,8 +549,11 @@ ADD . /
 			if bench.Disabled {
 				continue
 			}
+			getBuildEnv := replaceEnvs(defaultEnv, bench.GcEnv)
+
 			cmd := exec.Command("go", "get", "-d", "-t", "-v", bench.Repo)
-			cmd.Env = defaultEnv
+			cmd.Env = getBuildEnv
+
 			if !bench.NotSandboxed { // Do this so that OS-dependent dependencies are done correctly.
 				cmd.Env = replaceEnv(cmd.Env, "GOOS", "linux")
 			}
@@ -551,7 +569,96 @@ ADD . /
 				fmt.Println(s + "DISABLING benchmark " + bench.Name)
 				getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
 				todo.Benchmarks[i].Disabled = true
+				continue
 			}
+
+			// Ensure testdir exists -- if modules are enabled, it does not.
+			// This involves invoking git to make it appear.
+			testdir := gopath + "/src/" + bench.Repo
+			_, terr := os.Stat(testdir)
+			if terr != nil { // Assume missing directory is the cause of the error.
+				parts := strings.Split(bench.Repo, "/")
+				root := parts[0]
+				repoAt := pathLengths[root] - 1
+				if repoAt < 1 || repoAt >= len(parts) {
+					s := fmt.Sprintf("repoAt=%d was not a valid index for %v", repoAt, parts)
+					fmt.Println(s + "DISABLING benchmark " + bench.Name)
+					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+					todo.Benchmarks[i].Disabled = true
+					continue
+				}
+				dirToMake := gopath + "/src/" + strings.Join(parts[:repoAt], "/")
+				repoToGet := strings.Join(parts[:repoAt+1], "/")
+				if verbose > 0 {
+					fmt.Printf("mkdir -p %s\n", dirToMake)
+				}
+				err := os.MkdirAll(dirToMake, 0777)
+				if err != nil {
+					s := fmt.Sprintf("could not os.MkdirAll(%s), err = %v", dirToMake, err)
+					fmt.Println(s + "DISABLING benchmark " + bench.Name)
+					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+					todo.Benchmarks[i].Disabled = true
+					continue
+				}
+
+				cmd = exec.Command("git", "clone", "https://"+repoToGet)
+				cmd.Env = defaultEnv
+				cmd.Dir = dirToMake
+				if verbose > 0 {
+					fmt.Println(asCommandLine(cwd, cmd))
+				} else {
+					fmt.Print(".")
+				}
+				_, err = cmd.Output()
+				if err != nil {
+					ee := err.(*exec.ExitError)
+					s := fmt.Sprintf("There was an error running 'git clone', stderr = %s", ee.Stderr)
+					fmt.Println(s + "DISABLING benchmark " + bench.Name)
+					getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+					todo.Benchmarks[i].Disabled = true
+					continue
+				}
+				// This next bit often doesn't work, because reasons.
+				// There is probably an algorithm for the right place to run go mod init/tidy,
+				// but I don't know it and the two simple ones I tried didn't work.
+
+				// repoDir :=  gopath + "/src/" + strings.Join(parts[:repoAt+1],"/")
+
+				// // Try a go mod init.
+				// cmd = exec.Command("go", "mod", "init")
+				// cmd.Env = getBuildEnv
+				// cmd.Dir = repoDir
+				// if verbose > 0 {
+				// 	fmt.Println(asCommandLine(cwd, cmd))
+				// } else {
+				// 	fmt.Print(".")
+				// }
+				// _, err = cmd.Output()
+				// if err != nil {
+				// 	ee := err.(*exec.ExitError)
+				// 	fmt.Printf("go mod init returned %s but that is normal if go.mod already exists\n", ee.Stderr)
+				// } else {
+				// 	// Try a go mod tidy.
+				// 	cmd = exec.Command("go", "mod", "tidy")
+				// 	cmd.Env = getBuildEnv
+				// 	cmd.Dir = repoDir
+				// 	if verbose > 0 {
+				// 		fmt.Println(asCommandLine(cwd, cmd))
+				// 	} else {
+				// 		fmt.Print(".")
+				// 	}
+				// 	_, err = cmd.Output()
+				// 	if err != nil {
+				// 		ee := err.(*exec.ExitError)
+				// 		s := fmt.Sprintf("There was an error running 'git clone', stderr = %s", ee.Stderr)
+				// 		fmt.Println(s + "DISABLING benchmark " + bench.Name)
+				// 		getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
+				// 		todo.Benchmarks[i].Disabled = true
+				// 		continue
+				// 	}
+				// }
+			}
+
 			needSandbox = !bench.NotSandboxed || needSandbox
 			needNotSandbox = bench.NotSandboxed || needNotSandbox
 		}
@@ -818,7 +925,7 @@ ADD . /
 
 	maxrc := 0
 
-	// N repetitions of for each configurationm, run all the bencmarks.
+	// N repetitions for each configurationm, run all the benchmarks.
 	// TODO randomize the benchmarks and configurations, like for builds.
 	for i := 0; i < N; i++ {
 		// For each configuration, run all the benchmarks.
@@ -840,7 +947,7 @@ ADD . /
 				}
 				wrapperFor := func(s []string) string {
 					x := ""
-					if len(s) > 0  {
+					if len(s) > 0 {
 						// If not an explicit path, then make it an explicit path
 						x = s[0]
 						if x[0] != '/' {
@@ -1011,6 +1118,8 @@ func (config *Configuration) runOtherBenchmarks(b *Benchmark, cwd string) {
 			c.Env = replaceEnv(c.Env, "GOOS", "linux")
 		}
 		// Match the build environment here.
+		c.Env = replaceEnvs(c.Env, b.GcEnv)
+		// fmt.Printf("%s.GcEnv=%v\n", b.Name, b.GcEnv)
 		c.Env = replaceEnvs(c.Env, config.GcEnv)
 
 		if verbose > 0 {
@@ -1046,6 +1155,8 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 		if root != "" {
 			cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 		}
+		cmd.Env = replaceEnvs(cmd.Env, bench.GcEnv)
+		// fmt.Printf("%s.GcEnv=%v\n", bench.Name, bench.GcEnv)
 		cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 		cmd.Dir = gopath // Only want the cache-cleaning effect, not the binary-deleting effect. It's okay to clean gopath.
 		s, _ := config.runBinary("", cmd, true)
@@ -1075,6 +1186,8 @@ func (config *Configuration) compileOne(bench *Benchmark, cwd string, count int)
 	if root != "" {
 		cmd.Env = replaceEnv(cmd.Env, "GOROOT", root)
 	}
+	cmd.Env = replaceEnvs(cmd.Env, bench.GcEnv)
+	// fmt.Printf("%s.GcEnv=%v\n", bench.Name, bench.GcEnv)
 	cmd.Env = replaceEnvs(cmd.Env, config.GcEnv)
 
 	if verbose > 0 {
