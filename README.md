@@ -11,7 +11,7 @@ You can avoid the need for Docker with the `-U` command line flag, if you're oka
 Alternately, if you wish to only run those benchmarks that can be compiled into a container (this is platform-dependent)
 use the -S flag.
 
-Initial usage (this works if you have bent checked out on GOPATH, `bent -I` expects to find files there):
+Initial usage :
 
 ```
 go get github.com/dr2chase/bent
@@ -22,13 +22,6 @@ cp configurations-sample.toml configurations.toml
 nano configurations.toml # or use your favorite editor
 bent -v # will run default set of ~50 benchmarks using supplied configuration(s)
 ```
-
-If you don't use GOPATH, replace `bent -I` above with
-```
-GOPATH=`pwd` sh -c '( go get github.com/dr2chase/bent ; $GOPATH/bin/bent -I)'
-rm -rf bin src pkg
-```
-This checks it out again using the current directory as `GOPATH` and does the initialization.
 
 Bent now comes with several shell scripts to automate common uses.
 These all run using [`perflock`](https://github.com/aclements/perflock) if it is available, and default to different
@@ -54,11 +47,10 @@ The script also contains glue to tweet the results, but by default this will sil
 
 #### `cmpcl-phase.sh refs/changes/<nn>/<cl>/<patch> [options]`
 This checks out a particular version of a CL, and its immediate predecessor,
-compiles each once with the ssa phase timing flag turned on, does not benchmarks,
+compiles each once with the ssa phase timing flag turned on, does not run benchmarks,
 and feeds the log (with all the embedded phase timings) to [phase-times](https://github.com/dr2chase/gc-phase-times)
 to help spot any bad performance trends in the new CL.
-The resulting CSVs can
-be [imported into a spreadsheet and graphed](https://docs.google.com/spreadsheets/d/1f1rTX73ett6iKMb5LuNpnG78T7CLucQAHRKBZuI23Q4/edit?usp=sharing) 
+The resulting CSVs can be [imported into a spreadsheet and graphed](https://docs.google.com/spreadsheets/d/1f1rTX73ett6iKMb5LuNpnG78T7CLucQAHRKBZuI23Q4/edit?usp=sharing) 
 (select the "Test" sheet and scroll down below the vast table of numbers, there is a prtty chart).
 
 The output binaries are placed in subdirectory testbin, and various

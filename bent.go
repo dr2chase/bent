@@ -260,20 +260,15 @@ results will also appear in 'bench'.
 			fmt.Printf("It looks like you've already initialized this directory, remove ./gopath if you want to reinit.\n")
 			anyerr = true
 		}
-		gopathInit := os.Getenv("GOPATH")
-		if gopathInit == "" {
-			fmt.Printf("Need a GOPATH to locate configuration files in $GOPATH/src/%s.\n", srcPath)
-			anyerr = true
-		}
 		if anyerr {
 			os.Exit(1)
 		}
 		for _, s := range copyExes {
-			copyFile(gopathInit+"/"+srcPath, s)
+			copyAsset(s)
 			os.Chmod(s, 0755)
 		}
 		for _, s := range copyConfigs {
-			copyFile(gopathInit+"/"+srcPath, s)
+			copyAsset(s)
 		}
 
 		err := ioutil.WriteFile("Dockerfile",
@@ -1303,10 +1298,10 @@ func asCommandLine(cwd string, cmd *exec.Cmd) string {
 	return s
 }
 
-func copyFile(fromDir, file string) {
-	bytes, err := ioutil.ReadFile(fromDir + "/" + file)
+func copyAsset(file string) {
+	bytes, err := Asset(file)
 	if err != nil {
-		fmt.Printf("Error reading %s\n", fromDir+"/"+file)
+		fmt.Printf("Error reading asset %s\n", file)
 		os.Exit(1)
 	}
 	err = ioutil.WriteFile(file, bytes, 0664)
@@ -1314,7 +1309,7 @@ func copyFile(fromDir, file string) {
 		fmt.Printf("Error writing %s\n", file)
 		os.Exit(1)
 	}
-	fmt.Printf("Copied %s to current directory\n", fromDir+"/"+file)
+	fmt.Printf("Copied asset %s to current directory\n", file)
 }
 
 // runBinary runs cmd and displays the output.
