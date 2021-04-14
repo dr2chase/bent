@@ -16,16 +16,73 @@
   GcEnv = ["GO111MODULE=on"]
 
 [[Benchmarks]]
+  Name = "hugo_helpers"
+  Repo = "github.com/gohugoio/hugo/helpers"
+  Benchmarks = "Benchmark(StripHTML|ReaderContains)"
+  GcEnv = ["GO111MODULE="]
+
+[[Benchmarks]]
   Name = "hugo_hugolib_sitebuilding"
   Repo = "github.com/gohugoio/hugo/hugolib"
-  Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20,shortcodes,render-12" 
-  Disabled = true # Broken as of 2019-04-10
+  # Benchmarks = "BenchmarkSiteBuilding/YAML,num_pages=10,num_tags=10,tags_per_page=20,shortcodes,render-12" 
+  Benchmarks = "BenchmarkSiteNew/(Edit_Tags_and_categories|Regular_Deep_content_tree)" 
+  GcEnv = ["GO111MODULE=on"]
 
 [[Benchmarks]]
   Name = "hugo_hugolib"
   Repo = "github.com/gohugoio/hugo/hugolib"
-  Benchmarks = "BenchmarkParsePage"
-  Disabled = true # Broken as of 2019-04-10
+  # Benchmarks = "BenchmarkParsePage"
+  Benchmarks = "BenchmarkPagesPrevNext/Pages.ByTitle.Next-pages-5000"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_metrics"
+  Repo = "github.com/gohugoio/hugo/metrics"
+  Benchmarks = "Benchmark"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_resources"
+  Repo = "github.com/gohugoio/hugo/resources"
+  Benchmarks = "BenchmarkImageExif/Cold_cache"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_resources_page"
+  Repo = "github.com/gohugoio/hugo/resources/page"
+  Benchmarks = "BenchmarkSearchPage/Shuffled-5000"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_htmltemplate"
+  Repo = "github.com/gohugoio/hugo/tpl/internal/go_templates/htmltemplate"
+  Benchmarks = "BenchmarkEscapedExecute|BenchmarkTemplateSpecialTags"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_goldmark"
+  Repo = "github.com/gohugoio/hugo/markup/goldmark"
+  Benchmarks = "BenchmarkSanitizeAnchorNameAsciiOnly"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_pageparser"
+  Repo = "github.com/gohugoio/hugo/tpl/internal/go_templates/pageparser"
+  Benchmarks = "Benchmark"
+  GcEnv = ["GO111MODULE=on"]
+  Disabled=true # 2021-04-14 There was an error running 'go get', stderr = go get: module github.com/gohugoio/hugo@upgrade found (v0.82.0), but does not contain package github.com/gohugoio/hugo/tpl/internal/go_templates/pageparser
+
+[[Benchmarks]]
+  Name = "hugo_i18n"
+  Repo = "github.com/gohugoio/hugo/langs/i18n"
+  Benchmarks = "BenchmarkI18nTranslate/(present-in-default|readingTime-many)"
+  GcEnv = ["GO111MODULE=on"]
+
+[[Benchmarks]]
+  Name = "hugo_metadecoders"
+  Repo = "github.com/gohugoio/hugo/parser/metadecoders"
+  Benchmarks = "BenchmarkStringifyMapKeysStringsOnlyInterfaceMaps"
+  GcEnv = ["GO111MODULE=on"]
 
 [[Benchmarks]]
   Name = "ethereum_core"
@@ -132,20 +189,18 @@
   Benchmarks = "BenchmarkValidateVersionTildeFail"
 
 [[Benchmarks]]
-  Name = "hugo_helpers"
-  Repo = "github.com/gohugoio/hugo/helpers"
-  Benchmarks = "Benchmark(StripHTML|ReaderContains)"
-  GcEnv = ["GO111MODULE=on"]
-
-[[Benchmarks]]
   Name = "k8s_api"
   Repo = "k8s.io/kubernetes/pkg/api/testing"
   Benchmarks = "BenchmarkEncodeCodecFromInternalProtobuf"
+  GcEnv = ["GO111MODULE=on"]
+  Disabled = true # 2021-04-14 Doesn't go-get cleanly
 
 [[Benchmarks]]
   Name = "k8s_schedulercache"
   Repo = "k8s.io/kubernetes/pkg/scheduler/internal/cache"
   Benchmarks = "BenchmarkList1kNodes30kPods"
+  GcEnv = ["GO111MODULE=on"]
+  Disabled = true # 2021-04-14 Doesn't go-get cleanly
 
 [[Benchmarks]]
   Name = "uuid"
