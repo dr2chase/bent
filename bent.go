@@ -559,9 +559,11 @@ ADD . /
 			}
 			_, err := cmd.Output()
 			if err != nil {
-				ee := err.(*exec.ExitError)
-				s := fmt.Sprintf("There was an error running 'go get', stderr = %s", ee.Stderr)
-				fmt.Println(s + "DISABLING benchmark " + bench.Name)
+				s := fmt.Sprintf("There was an error running 'go get': %v", err)
+				if ee, ok := err.(*exec.ExitError); ok {
+					s += fmt.Sprintf(", stderr = %s", ee.Stderr)
+				}
+				fmt.Println(s + "\nDISABLING benchmark " + bench.Name)
 				getAndBuildFailures = append(getAndBuildFailures, s+"("+bench.Name+")\n")
 				todo.Benchmarks[i].Disabled = true
 				continue
