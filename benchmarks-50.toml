@@ -216,7 +216,7 @@
 [[Benchmarks]]
   Name = "gonum_path"
   Repo = "gonum.org/v1/gonum/graph/path/"
-  Benchmarks = "Benchmark(AStarUndirectedmallWorld_10_2_2_2_Heur|Dominators/nested_if_n256)"
+  Benchmarks = "Benchmark"
 
 [[Benchmarks]]
   Name = "gonum_community"
